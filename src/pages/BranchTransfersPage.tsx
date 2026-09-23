@@ -106,7 +106,7 @@ export default function BranchTransfersPage() {
                 <div key={idx} className="flex gap-2 items-start">
                   <select value={item.productId} onChange={(e) => updateItem(idx, 'productId', e.target.value)} required className="flex-1 h-10 px-3 rounded-lg border border-input bg-background text-sm focus:ring-2 focus:ring-ring focus:outline-none">
                     <option value="">اختر منتج</option>
-                    {(products ?? []).map((p) => <option key={p.id} value={p.id}>{p.name} - {p.type ?? ''} {p.color ?? ''}</option>)}
+                    {(products ?? []).map((p) => <option key={p.id} value={p.id}>{p.name} - {p.itemType ?? ''} {p.color ?? ''}</option>)}
                   </select>
                   <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value)} required placeholder="الكمية" className="w-28 h-10 px-3 rounded-lg border border-input bg-background text-sm focus:ring-2 focus:ring-ring focus:outline-none" dir="ltr" />
                   {form.items.length > 1 && <button type="button" onClick={() => removeItem(idx)} className="p-2.5 rounded-lg text-destructive hover:bg-destructive/10"><X className="w-4 h-4" /></button>}

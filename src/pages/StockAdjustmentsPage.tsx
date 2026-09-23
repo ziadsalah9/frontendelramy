@@ -91,7 +91,7 @@ export default function StockAdjustmentsPage() {
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="تعديل مخزون جديد">
         <form onSubmit={handleSubmit} className="space-y-4">
           <FormSelect label="الفرع" value={form.branchId} onChange={(v) => setForm({ ...form, branchId: v })} required placeholder="اختر الفرع" options={(branches ?? []).map((b) => ({ value: b.id, label: b.name }))} />
-          <FormSelect label="المنتج" value={form.productId} onChange={(v) => setForm({ ...form, productId: v })} required placeholder="اختر المنتج" options={(products ?? []).map((p) => ({ value: p.id, label: `${p.name} - ${p.type ?? ''} ${p.color ?? ''}` }))} />
+          <FormSelect label="المنتج" value={form.productId} onChange={(v) => setForm({ ...form, productId: v })} required placeholder="اختر المنتج" options={(products ?? []).map((p) => ({ value: p.id, label: `${p.name} - ${p.itemType ?? ''} ${p.color ?? ''}` }))} />
           <FormInput label="الكمية (موجب للزيادة، سالب للنقص)" type="number" value={form.quantity} onChange={(v) => setForm({ ...form, quantity: v })} required placeholder="مثال: 5 أو -3" dir="ltr" />
           <FormInput label="السبب" value={form.reason} onChange={(v) => setForm({ ...form, reason: v })} required placeholder="سبب التعديل" />
           <FormTextarea label="ملاحظات" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} placeholder="ملاحظات إضافية" />

@@ -137,7 +137,7 @@ export default function SalesInvoicesPage() {
                 <div key={idx} className="flex gap-2 items-center">
                   <select value={item.productId} onChange={(e) => updateItem(idx, 'productId', e.target.value)} required className="flex-1 h-10 px-3 rounded-lg border border-input bg-background text-sm">
                     <option value="">اختر منتج</option>
-                    {(products ?? []).map((p) => <option key={p.id} value={p.id}>{p.name} - {p.type ?? ''} {p.color ?? ''}</option>)}
+                    {(products ?? []).map((p) => <option key={p.id} value={p.id}>{p.name} - {p.itemType ?? ''} {p.color ?? ''}</option>)}
                   </select>
                   <input type="number" value={item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value)} required placeholder="الكمية" className="w-24 h-10 px-3 rounded-lg border border-input bg-background text-sm" dir="ltr" />
                   <input type="number" value={item.discount} onChange={(e) => updateItem(idx, 'discount', e.target.value)} placeholder="خصم" className="w-20 h-10 px-3 rounded-lg border border-input bg-background text-sm" dir="ltr" />
