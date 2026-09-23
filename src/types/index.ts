@@ -7,8 +7,9 @@ export interface AuthUser {
   username: string;
   fullName: string;
   role: UserRole;
-  branchId?: number;
   active: boolean;
+  branchId?: number | null;
+  branchName?: string | null;
 }
 
 export interface LoginRequest {
@@ -18,9 +19,13 @@ export interface LoginRequest {
 
 export interface LoginResponse {
   token: string;
-  user?: AuthUser;
+  userId: number;
+  username: string;
+  fullName: string;
+  role: UserRole;
+  branchId: number | null;
+  branchName: string | null;
 }
-
 export interface Branch {
   id: number;
   name: string;

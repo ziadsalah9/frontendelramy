@@ -7,7 +7,8 @@ import { useAuth } from '@/hooks/useAuth';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  const { setUser } = useAuth();
+  //const { setUser } = useAuth();
+  const { login } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -20,9 +21,10 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const res = await authService.login({ username, password });
-      if (res.user) {
-        setUser(res.user);
-      }
+        // setUser(res.user);
+login(res);
+
+      
       navigate('/', { replace: true });
     } catch (err) {
       const apiError = extractApiError(err);
