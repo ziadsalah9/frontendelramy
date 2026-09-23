@@ -2,9 +2,9 @@ import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { toast } from 'sonner';
 import type { ApiError } from '@/types';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://trial-sprite-b3gfu.sprites.app/';
+//export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://trial-sprite-b3gfu.sprites.app/';
 
-//export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8086/api';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8086';
 const TOKEN_KEY = 'mafroshat_token';
 const USER_KEY = 'mafroshat_user';
 
