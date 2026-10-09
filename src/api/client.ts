@@ -105,3 +105,13 @@ export function extractApiError(error: unknown): ApiError {
 }
 
 export default apiClient;
+
+/** Optional inclusive yyyy-MM-dd range for list endpoints. */
+export interface DateRangeParams {
+  from?: string;
+  to?: string;
+}
+
+/** Drops empty ends so the server treats them as open. */
+export const cleanRange = (r: DateRangeParams) =>
+  Object.fromEntries(Object.entries(r).filter(([, v]) => v)) as DateRangeParams;

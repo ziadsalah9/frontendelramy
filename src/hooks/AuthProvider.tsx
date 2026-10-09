@@ -1,18 +1,8 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { User, LoginResponse, UserRole } from '../types';
 import { setToken, clearToken, setStoredUser, getStoredUser } from '../api/client';
-
-interface AuthContextType {
-  user: User | null;
-  token: string | null;
-  login: (data: LoginResponse) => void;
-  logout: () => void;
-  isAuthenticated: boolean;
-  isAdmin: boolean;
-}
-
-const AuthContext = createContext<AuthContextType | null>(null);
+import { AuthContext } from './useAuth';
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const queryClient = useQueryClient();
@@ -74,10 +64,4 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       {children}
     </AuthContext.Provider>
   );
-};
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) throw new Error('useAuth must be used within AuthProvider');
-  return context;
 };

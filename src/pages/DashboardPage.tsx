@@ -1,15 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
-import { Package, Users, ShoppingCart, Receipt, ArrowLeft } from 'lucide-react';
-import { productsService } from '@/api/products';
-import { customersService } from '@/api/customers';
-import { purchaseInvoicesService } from '@/api/purchaseInvoices';
-import { salesInvoicesService } from '@/api/salesInvoices';
+import { Package, Users, ShoppingCart, Receipt, ArrowLeft, TrendingUp } from 'lucide-react';
+import { dashboardService } from '@/api/dashboard';
+import { extractApiError } from '@/api/client';
 import { PageHeader, LoadingState, EmptyState } from '@/components/shared/States';
 import { formatDate, formatCurrency } from '@/utils/format';
 import { useAuth } from '@/hooks/useAuth';
 
-function StatCard({ icon: Icon, label, value, to, color }: { icon: React.ComponentType<{ className?: string }>; label: string; value: number | string; to: string; color: string }) {
+function StatCard({ icon: Icon, label, value, hint, to, color }: { icon: React.ComponentType<{ className?: string }>; label: string; value: number | string; hint?: string; to: string; color: string }) {
   return (
     <Link to={to} className="group bg-card border rounded-xl p-5 hover:shadow-lg hover:border-primary/30 transition-all">
       <div className="flex items-start justify-between mb-4">
@@ -20,105 +18,69 @@ function StatCard({ icon: Icon, label, value, to, color }: { icon: React.Compone
       </div>
       <p className="text-sm text-muted-foreground mb-1">{label}</p>
       <p className="text-2xl font-bold text-foreground">{value}</p>
+      {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
     </Link>
   );
 }
 
+/** Home: counts and today's sales from one small summary request. */
 export default function DashboardPage() {
   const { user, isAdmin } = useAuth();
+  const { data, isLoading, error } = useQuery({ queryKey: ['dashboard'], queryFn: dashboardService.get });
 
-  const { data: products, isLoading: lp, error: ep } = useQuery({ queryKey: ['products'], queryFn: productsService.getAll });
-  const { data: customers, isLoading: lc, error: ec } = useQuery({ queryKey: ['customers'], queryFn: customersService.getAll });
-  // /api/purchase-invoices is ADMIN-only; calling it as an employee only
-  // produces a 403 and a misleading "server unreachable" banner.
-  const { data: purchaseInvoices, isLoading: lpi, error: epi } = useQuery({
-    queryKey: ['purchase-invoices'],
-    queryFn: purchaseInvoicesService.getAll,
-    enabled: isAdmin,
-  });
-  const { data: salesInvoices, isLoading: lsi, error: esi } = useQuery({ queryKey: ['sales-invoices'], queryFn: salesInvoicesService.getAll });
-
-  const anyError = ep || ec || epi || esi;
-  const anyLoading = lp || lc || (isAdmin && lpi) || lsi;
-
-  // Newest first, regardless of the order the API returns.
-  const newestFirst = <T extends { createdAt: string }>(rows: T[] | undefined) =>
-    [...(rows ?? [])].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 5);
-  const recentSales = newestFirst(salesInvoices);
-  const recentPurchases = isAdmin ? newestFirst(purchaseInvoices) : [];
-
-  if (anyLoading) return <LoadingState />;
+  if (isLoading) return <LoadingState />;
 
   return (
     <div>
       <PageHeader title="الرئيسية" description={`مرحباً، ${user?.fullName ?? 'مستخدم'} - إليك نظرة عامة على النظام`} />
 
-      {anyError ? (
+      {error && (
         <div className="mb-6 p-4 rounded-lg bg-warning/10 border border-warning/30 text-sm text-warning">
-          تعذر تحميل بعض البيانات من الخادم. حاول تحديث الصفحة بعد قليل
+          تعذر تحميل الملخص: {extractApiError(error).message}
         </div>
-      ) : null}
+      )}
 
-      <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-        <StatCard icon={Package} label="عدد المنتجات" value={products?.length ?? 0} to="/products" color="bg-primary/10 text-primary" />
-        <StatCard icon={Users} label="عدد العملاء" value={customers?.length ?? 0} to="/customers" color="bg-chart-3/10 text-chart-3" />
-        <StatCard icon={Receipt} label="فواتير البيع" value={salesInvoices?.length ?? 0} to="/sales-invoices" color="bg-chart-4/10 text-chart-4" />
-        {isAdmin && <StatCard icon={ShoppingCart} label="فواتير الشراء" value={purchaseInvoices?.length ?? 0} to="/purchase-invoices" color="bg-chart-5/10 text-chart-5" />}
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {recentSales.length > 0 && (
-          <div className="bg-card border rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b">
-              <div className="flex items-center gap-2">
-                <Receipt className="w-5 h-5 text-primary" />
-                <h3 className="font-bold text-foreground">أحدث فواتير البيع</h3>
-              </div>
-              <Link to="/sales-invoices" className="text-sm text-primary hover:underline">عرض الكل</Link>
-            </div>
-            <div className="divide-y">
-              {recentSales.map((inv) => (
-                <div key={inv.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{inv.invoiceNumber}</p>
-                    <p className="text-xs text-muted-foreground">{inv.customer?.name ?? 'عميل'} - {formatDate(inv.createdAt)}</p>
-                  </div>
-                  <p className="text-sm font-bold text-primary">{formatCurrency(inv.total)} ج.م</p>
-                </div>
-              ))}
-            </div>
+      {data && (
+        <>
+          <div className={`grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8 ${isAdmin ? 'lg:grid-cols-5' : 'lg:grid-cols-4'}`}>
+            <StatCard icon={TrendingUp} label="مبيعات اليوم" value={`${formatCurrency(data.todaySalesTotal)} ج.م`} hint={`${data.todaySalesCount} فاتورة`} to="/receipts" color="bg-success/10 text-success" />
+            <StatCard icon={Package} label="عدد المنتجات" value={data.products} to="/products" color="bg-primary/10 text-primary" />
+            <StatCard icon={Users} label="عدد العملاء" value={data.customers} to="/customers" color="bg-chart-3/10 text-chart-3" />
+            <StatCard icon={Receipt} label="فواتير البيع" value={data.salesInvoices} to="/sales-invoices" color="bg-chart-4/10 text-chart-4" />
+            {isAdmin && data.purchaseInvoices != null && (
+              <StatCard icon={ShoppingCart} label="فواتير الشراء" value={data.purchaseInvoices} to="/purchase-invoices" color="bg-chart-5/10 text-chart-5" />
+            )}
           </div>
-        )}
 
-        {recentPurchases.length > 0 && (
-          <div className="bg-card border rounded-xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b">
-              <div className="flex items-center gap-2">
-                <ShoppingCart className="w-5 h-5 text-primary" />
-                <h3 className="font-bold text-foreground">أحدث فواتير الشراء</h3>
-              </div>
-              <Link to="/purchase-invoices" className="text-sm text-primary hover:underline">عرض الكل</Link>
-            </div>
-            <div className="divide-y">
-              {recentPurchases.map((inv) => (
-                <div key={inv.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors">
-                  <div>
-                    <p className="text-sm font-medium text-foreground">{inv.invoiceNumber}</p>
-                    <p className="text-xs text-muted-foreground">{formatDate(inv.createdAt)}</p>
-                  </div>
-                  <p className="text-sm font-bold text-primary">{formatCurrency(inv.total)} ج.م</p>
+          {data.recentSales.length > 0 ? (
+            <div className="bg-card border rounded-xl overflow-hidden">
+              <div className="flex items-center justify-between px-5 py-4 border-b">
+                <div className="flex items-center gap-2">
+                  <Receipt className="w-5 h-5 text-primary" />
+                  <h3 className="font-bold text-foreground">أحدث فواتير البيع</h3>
                 </div>
-              ))}
+                <Link to="/sales-invoices" className="text-sm text-primary hover:underline">عرض الكل</Link>
+              </div>
+              <div className="divide-y">
+                {data.recentSales.map((inv) => (
+                  <div key={inv.id} className="flex items-center justify-between px-5 py-3 hover:bg-muted/30 transition-colors">
+                    <div>
+                      <p className="text-sm font-medium text-foreground" dir="ltr">{inv.invoiceNumber}</p>
+                      <p className="text-xs text-muted-foreground">{inv.customerName ?? 'عميل'} - {formatDate(inv.createdAt)}</p>
+                    </div>
+                    <div className="text-left">
+                      <p className="text-sm font-bold text-primary">{formatCurrency(inv.total)} ج.م</p>
+                      {inv.remaining > 0 && <p className="text-xs text-destructive">متبقي {formatCurrency(inv.remaining)}</p>}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
-
-        {recentSales.length === 0 && recentPurchases.length === 0 && !anyError && (
-          <div className="lg:col-span-2">
+          ) : (
             <EmptyState title="لا توجد فواتير لعرضها حالياً" description="ستظهر هنا أحدث الفواتير بمجرد إنشائها" />
-          </div>
-        )}
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

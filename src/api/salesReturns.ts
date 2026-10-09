@@ -1,4 +1,4 @@
-import api from './client';
+import api, { cleanRange, type DateRangeParams } from './client';
 import type { RefundMethod, SalesReturn } from '@/types';
 
 export const salesReturnsService = {
@@ -11,8 +11,8 @@ export const salesReturnsService = {
     const { data } = await api.get<SalesReturn[]>(`/api/sales-invoices/${invoiceId}/returns`);
     return data;
   },
-  async getAll(): Promise<SalesReturn[]> {
-    const { data } = await api.get<SalesReturn[]>('/api/sales-returns');
+  async getAll(range: DateRangeParams = {}): Promise<SalesReturn[]> {
+    const { data } = await api.get<SalesReturn[]>('/api/sales-returns', { params: cleanRange(range) });
     return data;
   },
 };

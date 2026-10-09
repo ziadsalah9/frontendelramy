@@ -1,9 +1,10 @@
-import api from './client';
+import api, { cleanRange, type DateRangeParams } from './client';
 import type { SalesInvoice, SalesInvoiceCreateInput } from '@/types';
 
 export const salesInvoicesService = {
-  async getAll(): Promise<SalesInvoice[]> {
-    const { data } = await api.get<SalesInvoice[]>('/api/sales-invoices');
+  /** Newest first; an empty range means all history. */
+  async getAll(range: DateRangeParams = {}): Promise<SalesInvoice[]> {
+    const { data } = await api.get<SalesInvoice[]>('/api/sales-invoices', { params: cleanRange(range) });
     return data;
   },
   async getById(id: number): Promise<SalesInvoice> {

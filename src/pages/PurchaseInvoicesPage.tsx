@@ -14,6 +14,8 @@ import { sanitizeDecimal, sanitizeInt, matches, MAX_INVOICE_NUMBER, MAX_NOTES } 
 import { useMainBranch } from '@/hooks/useMainBranch';
 import { ClosedBranchBadge } from '@/components/shared/ClosedBranchBadge';
 import { toast } from 'sonner';
+import { useDateRange } from '@/hooks/useDateRange';
+import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 
 // variantId = the exact colour/size being bought.
 interface FormItem { key: number; productId: string; variantId: string; quantity: string; unitPrice: string; discount: string; }
@@ -51,7 +53,9 @@ export default function PurchaseInvoicesPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { data: invoices, isLoading, error: queryError } = useQuery({ queryKey: ['purchase-invoices'], queryFn: purchaseInvoicesService.getAll });
+  // One period at a time (this month by default) instead of all history.
+  const range = useDateRange();
+  const { data: invoices, isLoading, error: queryError } = useQuery({ queryKey: ['purchase-invoices', { from: range.from, to: range.to }], queryFn: () => purchaseInvoicesService.getAll({ from: range.from, to: range.to }) });
   // Single-branch mode: stock always goes into the shop's one branch.
   const { branchId: mainBranchId } = useMainBranch();
   const { data: products } = useQuery({ queryKey: ['products'], queryFn: productsService.getAll });
@@ -227,7 +231,10 @@ export default function PurchaseInvoicesPage() {
         </button>
       } />
 
-      <div className="mb-4"><SearchInput value={search} onChange={setSearch} placeholder="بحث برقم الفاتورة أو الملاحظات..." /></div>
+      <div className="mb-4 flex flex-col lg:flex-row gap-3 lg:items-center">
+        <SearchInput value={search} onChange={setSearch} placeholder="بحث برقم الفاتورة أو الملاحظات..." />
+        <DateRangeFilter from={range.from} to={range.to} onFrom={range.setFrom} onTo={range.setTo} onReset={range.reset} showReset={!range.isDefault} idPrefix="purchases" />
+      </div>
 
       <DataTable
         columns={columns}

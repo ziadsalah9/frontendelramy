@@ -43,12 +43,6 @@ export interface Branch {
   active?: boolean;
 }
 
-export interface BranchCreateInput {
-  name: string;
-  address?: string;
-  phone?: string;
-}
-
 export type ProductType =
   | 'لحاف' | 'بطانيه' | 'طقم' | 'فوط' | 'دفاية' | 'برنس'
   | 'مفارش' | 'حافظة' | 'مشاية' | 'كوفرتة' | 'مصلية' | 'نيش'
