@@ -14,6 +14,10 @@ export const salesInvoicesService = {
     const { data } = await api.get<SalesInvoice>(`/api/sales-invoices/number/${invoiceNumber}`);
     return data;
   },
+  async getByCustomerPhone(phone: string): Promise<SalesInvoice[]> {
+    const { data } = await api.get<SalesInvoice[]>(`/api/sales-invoices/customer/${encodeURIComponent(phone)}`);
+    return data;
+  },
   async create(input: SalesInvoiceCreateInput): Promise<SalesInvoice> {
     const { data } = await api.post<SalesInvoice>('/api/sales-invoices', input);
     return data;

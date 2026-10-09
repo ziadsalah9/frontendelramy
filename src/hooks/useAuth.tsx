@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { User, LoginResponse, UserRole } from '../types';
 import { setToken, clearToken, setStoredUser, getStoredUser } from '../api/client';
 
@@ -14,6 +15,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const queryClient = useQueryClient();
   const [token, setTokenState] = useState<string | null>(() => localStorage.getItem('mafroshat_token'));
 
   const [user, setUser] = useState<User | null>(() => {
@@ -32,9 +34,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const login = (data: LoginResponse) => {
-    // 1️⃣ طباعة البيانات القادمة من الباك إند كما هي
-    console.log('🔴 API Response Received:', data);
-
+    // Normalise the role from the login response. The backend sends a
+    // plain enum name ("ADMIN" / "EMPLOYEE"), but older payloads used a
+    // different casing or a "roles" field, so match on the substring.
     const rawRole = data.role ? String(data.role).toUpperCase() : '';
     const normalizedRole: UserRole = rawRole.includes('ADMIN') ? 'ADMIN' : 'EMPLOYEE';
 
@@ -48,9 +50,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       branchName: data.branchName ?? undefined,
     };
 
-    // 2️⃣ طباعة البيانات بعد تحويلها وتجهيزها للحفظ
-    console.log('🟢 Processed User Object:', userData);
-
+    queryClient.clear();
     setToken(data.token);
     setStoredUser(JSON.stringify(userData));
 
@@ -59,6 +59,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const logout = () => {
+    // Drop every cached response: the next user on this tab (maybe an
+    // employee) must not see the previous admin's data, e.g. cost prices.
+    queryClient.clear();
     clearToken();
     setTokenState(null);
     setUser(null);
@@ -78,54 +81,3 @@ export const useAuth = () => {
   if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
-// import { createContext, useContext, useState, useEffect, type ReactNode } from 'react';
-// import type { AuthUser } from '@/types';
-// import { getToken, clearToken, getStoredUser } from '@/api/client';
-
-// interface AuthContextValue {
-//   user: AuthUser | null;
-//   isAuthenticated: boolean;
-//   setUser: (user: AuthUser | null) => void;
-//   logout: () => void;
-// }
-
-// const AuthContext = createContext<AuthContextValue | null>(null);
-
-// export function AuthProvider({ children }: { children: ReactNode }) {
-//   const [user, setUserState] = useState<AuthUser | null>(null);
-
-//   useEffect(() => {
-//     const token = getToken();
-//     const stored = getStoredUser();
-//     if (token && stored) {
-//       try {
-//         setUserState(JSON.parse(stored));
-//       } catch {
-//         clearToken();
-//       }
-//     }
-//   }, []);
-
-//   const setUser = (u: AuthUser | null) => {
-//     setUserState(u);
-//     if (!u) clearToken();
-//   };
-
-//   const logout = () => {
-//     clearToken();
-//     setUserState(null);
-//     window.location.href = '/login';
-//   };
-
-//   return (
-//     <AuthContext.Provider value={{ user, isAuthenticated: !!getToken(), setUser, logout }}>
-//       {children}
-//     </AuthContext.Provider>
-//   );
-// }
-
-// export function useAuth() {
-//   const ctx = useContext(AuthContext);
-//   if (!ctx) throw new Error('useAuth must be used within AuthProvider');
-//   return ctx;
-// }

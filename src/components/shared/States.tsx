@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export function LoadingState({ message = 'جاري التحميل...' }: { message?: string }) {
@@ -59,6 +59,8 @@ export function ConfirmDialog({
   confirmText = 'تأكيد',
   cancelText = 'إلغاء',
   destructive = false,
+  loading = false,
+  children,
 }: {
   open: boolean;
   onConfirm: () => void;
@@ -68,29 +70,50 @@ export function ConfirmDialog({
   confirmText?: string;
   cancelText?: string;
   destructive?: boolean;
+  /** Disables both buttons while the confirmed action is running. */
+  loading?: boolean;
+  children?: ReactNode;
 }) {
+  useEffect(() => {
+    if (!open || loading) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onCancel();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [open, loading, onCancel]);
+
   if (!open) return null;
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-in fade-in" onClick={onCancel}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-in fade-in" onClick={loading ? undefined : onCancel}>
       <div
+        role="alertdialog"
+        aria-modal="true"
+        aria-label={title}
         className="bg-card border rounded-xl shadow-xl p-6 max-w-sm w-full mx-4 animate-in zoom-in-95"
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className="text-lg font-bold text-foreground mb-2">{title}</h2>
         <p className="text-sm text-muted-foreground mb-6">{description}</p>
+        {children}
         <div className="flex gap-3 justify-end">
           <button
+            type="button"
             onClick={onCancel}
-            className="px-4 py-2 text-sm font-medium rounded-lg border border-input bg-background hover:bg-accent transition-colors"
+            disabled={loading}
+            className="px-4 py-2 text-sm font-medium rounded-lg border border-input bg-background hover:bg-accent transition-colors disabled:opacity-50"
           >
             {cancelText}
           </button>
           <button
+            type="button"
             onClick={onConfirm}
-            className={`px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors ${
+            disabled={loading}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors disabled:opacity-50 ${
               destructive ? 'bg-destructive hover:bg-destructive/90' : 'bg-primary hover:bg-primary/90'
             }`}
           >
+            {loading && <Loader2 className="w-4 h-4 animate-spin" />}
             {confirmText}
           </button>
         </div>

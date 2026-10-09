@@ -116,3 +116,15 @@ body {
 html[dir="rtl"] .ltr {
   direction: ltr;
 }
+
+/* Printing: only the element marked .print-area is printed (e.g. the
+   stocktake count sheet); everything else on the page is hidden. */
+.print-area { display: none; }
+@media print {
+  body * { visibility: hidden; }
+  .print-area, .print-area * { visibility: visible; }
+  .print-area { display: block; position: absolute; inset: 0; padding: 12mm; background: #fff; color: #000; }
+  .print-area table { width: 100%; border-collapse: collapse; font-size: 11px; }
+  .print-area th, .print-area td { border: 1px solid #555; padding: 4px 6px; text-align: right; }
+  .print-area tr { break-inside: avoid; }
+}

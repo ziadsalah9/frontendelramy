@@ -1,6 +1,15 @@
 export type UserRole = 'ADMIN' | 'EMPLOYEE';
-export type PaymentMethod = 'CASH' | 'CARD' | 'TRANSFER' | 'CREDIT';
-export type TransferStatus = 'PENDING' | 'COMPLETED' | 'CANCELLED';
+
+// Must match the backend enum Elramy...enums.PaymentMethod exactly.
+export type PaymentMethod = 'CASH' | 'VISA' | 'INSTAPAY' | 'VODAFONE_CASH' | 'MIXED';
+
+export const PAYMENT_METHODS: { value: PaymentMethod; label: string }[] = [
+  { value: 'CASH', label: 'نقدي' },
+  { value: 'VISA', label: 'فيزا / بطاقة' },
+  { value: 'INSTAPAY', label: 'إنستاباي' },
+  { value: 'VODAFONE_CASH', label: 'فودافون كاش' },
+  { value: 'MIXED', label: 'مختلط' },
+];
 
 export interface AuthUser {
   id: number;
@@ -31,6 +40,7 @@ export interface Branch {
   name: string;
   address?: string;
   phone?: string;
+  active?: boolean;
 }
 
 export interface BranchCreateInput {
@@ -83,50 +93,142 @@ export const PRODUCT_COLORS: { value: string; label: string }[] = [
   { value: 'متعدد', label: 'متعدد الألوان' },
 ];
 
-export const PRODUCT_SIZES: { value: string; label: string }[] = [
-  { value: 'صغير', label: 'صغير' },
-  { value: 'وسط', label: 'وسط' },
-  { value: 'كبير', label: 'كبير' },
-  { value: 'مزدوج', label: 'مزدوج' },
-  { value: 'كينج', label: 'كينج' },
-  { value: 'سوبر كينج', label: 'سوبر كينج' },
-  { value: 'قطعة واحدة', label: 'قطعة واحدة' },
-  { value: 'طقم 2', label: 'طقم 2 قطع' },
-  { value: 'طقم 3', label: 'طقم 3 قطع' },
-  { value: 'طقم 4', label: 'طقم 4 قطع' },
-  { value: 'طقم 5', label: 'طقم 5 قطع' },
-  { value: 'طقم 6', label: 'طقم 6 قطع' },
-  { value: 'طقم 7', label: 'طقم 7 قطع' },
-  { value: 'حجم واحد', label: 'حجم واحد' },
-];
+/**
+ * One colour/size of a product, with its own stock, code and barcode.
+ * Colour and size are each optional.
+ */
+export interface ProductVariant {
+  id: number;
+  code: string;
+  barcode?: string | null;
+  color?: string | null;
+  size?: string | null;
+  /** "أحمر / كبير", "أحمر", "كبير" or "بدون لون أو مقاس". */
+  label: string;
+  quantity: number;
+  active?: boolean;
+}
 
 export interface Product {
   id: number;
   code?: string;
   name: string;
   itemType: ProductType;
-  color: string;
-  size: string;
   model?: string;
-  barcode?: string;
   minimumQuantity: number;
+  active?: boolean;
+  /** One price for every colour/size. */
+  currentPrice?: ProductPrice | null;
+  /** Total stock across all colours/sizes. */
+  quantity: number;
+  /** Total quantity <= minimumQuantity */
+  lowStock?: boolean;
+  variants: ProductVariant[];
+}
+
+/** A colour/size in a product create/update; id set for an existing one. */
+export interface ProductVariantInput {
+  id?: number;
+  color?: string | null;
+  size?: string | null;
+  /** Wanted stock; null = unchanged. New: opening stock. Existing: adjustment. */
+  quantity?: number | null;
+  /** Stock the form started from; the server rejects the edit if it changed since. */
+  expectedQuantity?: number | null;
 }
 
 export interface ProductCreateInput {
   name: string;
   itemType: ProductType;
-  color: string;
-  size: string;
   model?: string;
   minimumQuantity: number;
+  /** The full list of colours/sizes; ones left out are removed. */
+  variants: ProductVariantInput[];
+  /** Total available quantity; the remainder becomes "بدون لون أو مقاس". Omit to leave stock as is. */
+  totalQuantity?: number;
+}
+
+export interface VariantLookup {
+  product: Product;
+  variant: ProductVariant;
+}
+
+/** One problem in an uploaded product sheet (row = Excel row, header = 1). */
+export interface ProductImportRowError {
+  row: number;
+  column: string | null;
+  message: string;
+}
+
+/**
+ * An incomplete product from an Excel import ("منتجات غير مكتملة").
+ * It stays out of the system (sales, stock, lists) until completed.
+ */
+/** A colour/size row of an incomplete product; quantity null = not entered. */
+export interface ProductDraftVariant {
+  id?: number | null;
+  color: string | null;
+  size: string | null;
+  quantity: number | null;
+  sourceRow?: number | null;
+}
+
+export interface ProductDraft {
+  id: number;
+  name: string | null;
+  itemType: ProductType | null;
+  model: string | null;
+  minimumQuantity: number | null;
+  /** Total available quantity; required to complete the draft. */
+  totalQuantity: number | null;
+  purchasePrice: number | null;
+  profitPercentage: number | null;
+  sellingPrice: number | null;
+  /** Colours/sizes, each with its quantity. */
+  variants: ProductDraftVariant[];
+  /** Required fields still empty (Arabic labels). Empty = can be completed. */
+  missingFields: string[];
+  /** What the import cleared and why. */
+  notes: string[];
+  sourceFile: string | null;
+  sourceRow: number | null;
+  createdAt: string;
+}
+
+export type ProductDraftInput = Partial<Omit<ProductDraft, 'id' | 'missingFields' | 'notes' | 'sourceFile' | 'sourceRow' | 'createdAt'>>;
+
+export interface ProductImportSkippedRow {
+  row: number;
+  name: string | null;
+  reason: string;
+}
+
+export interface ProductImportResult {
+  created: number;
+  withPrice: number;
+  /** Products created with an opening quantity > 0. */
+  withStock: number;
+  /** Sum of the opening quantities. */
+  totalQuantity: number;
+  products: Product[];
+  /** New colours/sizes added to products that already existed. */
+  variantsAdded: number;
+  /** Incomplete rows saved to "منتجات غير مكتملة". */
+  drafted: number;
+  drafts: ProductDraft[];
+  /** Duplicates that were not imported. */
+  skipped: ProductImportSkippedRow[];
+  /** File-level notes, e.g. a missing column. */
+  warnings: string[];
 }
 
 export interface ProductPrice {
   id: number;
-  productId: number;
+  productId?: number;
   purchasePrice: number;
   sellingPrice: number;
   profitPercentage?: number;
+  active?: boolean;
   createdAt?: string;
 }
 
@@ -140,84 +242,22 @@ export interface Customer {
   id: number;
   name: string;
   phone: string;
+  secondaryPhone?: string | null;
   address?: string;
-  status?: string;
+  active: boolean;
 }
 
 export interface CustomerCreateInput {
   name: string;
   phone: string;
+  secondaryPhone?: string;
   address?: string;
 }
 
-export interface Stock {
+export interface CustomerDeleteResult {
   id: number;
-  productId: number;
-  branchId: number;
-  quantity: number;
-  minimumQuantity?: number;
-  productName?: string;
-  branchName?: string;
-}
-
-export interface StockTransaction {
-  id: number;
-  stockId?: number;
-  productId?: number;
-  branchId?: number;
-  quantity: number;
-  type: string;
-  reason?: string;
-  reference?: string;
-  createdAt: string;
-}
-
-export interface StockAdjustment {
-  id: number;
-  branchId: number;
-  productId: number;
-  quantity: number;
-  reason: string;
-  notes?: string;
-  createdAt?: string;
-  branchName?: string;
-  productName?: string;
-}
-
-export interface StockAdjustmentCreateInput {
-  branchId: number;
-  productId: number;
-  quantity: number;
-  reason: string;
-  notes?: string;
-}
-
-export interface TransferItem {
-  id: number;
-  transferId: number;
-  productId: number;
-  quantity: number;
-  productName?: string;
-}
-
-export interface BranchTransfer {
-  id: number;
-  transferNumber?: string;
-  fromBranchId: number;
-  toBranchId: number;
-  status: TransferStatus;
-  notes?: string;
-  createdAt: string;
-  items: TransferItem[];
-  fromBranchName?: string;
-  toBranchName?: string;
-}
-
-export interface BranchTransferCreateInput {
-  fromBranchId: number;
-  toBranchId: number;
-  notes?: string;
-  items: { productId: number; quantity: number }[];
+  /** false = the customer has invoices, so it was deactivated instead. */
+  permanentlyDeleted: boolean;
 }
 
 export interface InvoiceItem {
@@ -228,6 +268,11 @@ export interface InvoiceItem {
   discount: number;
   productName?: string;
   total?: number;
+  /** The colour/size sold or bought (null on very old lines). */
+  variantId?: number | null;
+  variantCode?: string | null;
+  color?: string | null;
+  size?: string | null;
 }
 
 export interface PurchaseInvoice {
@@ -248,20 +293,20 @@ export interface PurchaseInvoice {
 export interface PurchaseInvoiceCreateInput {
   invoiceNumber: string;
   branchId: number;
-  items: { productId: number; quantity: number; unitPrice: number; discount: number }[];
+  items: { variantId: number; quantity: number; unitPrice: number; discount: number }[];
   discount: number;
   paid: number;
   paymentMethod: PaymentMethod;
   notes?: string;
 }
 
+// The backend nests the customer object, it does not flatten it.
 export interface SalesInvoice {
   id: number;
   invoiceNumber: string;
   branchId: number;
-  customerId?: number;
-  customerName?: string;
-  customerPhone?: string;
+  customer?: Customer | null;
+  cashierId?: number;
   cashierName?: string;
   items: InvoiceItem[];
   discount: number;
@@ -278,7 +323,7 @@ export interface SalesInvoiceCreateInput {
   branchId: number;
   customer: { name: string; phone: string; address?: string };
   paymentMethod: PaymentMethod;
-  items: { productId: number; quantity: number; discount: number }[];
+  items: { variantId: number; quantity: number; discount: number }[];
   discount: number;
   paid: number;
   notes?: string;
@@ -300,7 +345,6 @@ export interface UserCreateInput {
   fullName: string;
   role: UserRole;
   branchId?: number;
-  active: boolean;
 }
 
 export interface UserUpdateInput {
@@ -316,4 +360,150 @@ export interface ApiError {
   message: string;
   status: number;
   fieldErrors?: Record<string, string>;
+}
+// ---------------------------------------------------------------- activity log (ADMIN-only)
+
+export type ActivityAction = 'CREATE' | 'UPDATE' | 'DELETE' | 'STATUS' | 'PRICE' | 'STOCK' | 'IMPORT' | 'COMPLETE';
+export type ActivityEntity =
+  | 'PRODUCT'
+  | 'SALES_INVOICE'
+  | 'PURCHASE_INVOICE'
+  | 'CUSTOMER'
+  | 'USER'
+  | 'BRANCH'
+  | 'CASH_CLOSING'
+  | 'PRODUCT_DRAFT'
+  | 'STOCKTAKE';
+
+/** One changed field; `before` is null for new values, `after` for removed ones. */
+export interface ActivityChange {
+  field: string;
+  before: string | null;
+  after: string | null;
+}
+
+export interface ActivityLogEntry {
+  id: number;
+  createdAt: string;
+  userId?: number | null;
+  username?: string | null;
+  userFullName?: string | null;
+  action: ActivityAction;
+  entityType: ActivityEntity;
+  entityId?: number | null;
+  entityLabel?: string | null;
+  description: string;
+  changes: ActivityChange[];
+}
+
+export interface ActivityLogPage {
+  content: ActivityLogEntry[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface ActivityLogFilters {
+  userId?: number;
+  entityType?: ActivityEntity;
+  action?: ActivityAction;
+  from?: string;
+  to?: string;
+  q?: string;
+  page?: number;
+  size?: number;
+}
+
+// ---------------------------------------------------------------- stocktaking (ADMIN-only)
+
+export type StocktakeStatus = 'OPEN' | 'APPROVED' | 'CANCELLED';
+export type StocktakeReason = 'DAMAGED' | 'LOST' | 'COUNT_ERROR' | 'UNRECORDED' | 'OTHER';
+
+export const STOCKTAKE_REASONS: { value: StocktakeReason; label: string }[] = [
+  { value: 'DAMAGED', label: 'تالف' },
+  { value: 'LOST', label: 'مفقود' },
+  { value: 'COUNT_ERROR', label: 'خطأ عد سابق' },
+  { value: 'UNRECORDED', label: 'زيادة غير مسجلة' },
+  { value: 'OTHER', label: 'أخرى' },
+];
+
+export interface StocktakeSummary {
+  id: number;
+  code: string;
+  title: string;
+  /** Empty = the whole store. */
+  types: ProductType[];
+  status: StocktakeStatus;
+  notes?: string | null;
+  createdAt: string;
+  createdByName?: string | null;
+  approvedAt?: string | null;
+  approvedByName?: string | null;
+  countedLines: number;
+  totalInScope: number;
+  shortageCost?: number | null;
+  surplusCost?: number | null;
+  shortageSell?: number | null;
+  surplusSell?: number | null;
+}
+
+/** What the counter sees: no system quantity (blind count). */
+export interface StocktakeCountLine {
+  variantId: number;
+  productId: number;
+  productName: string;
+  itemType: ProductType | null;
+  variantCode: string;
+  barcode?: string | null;
+  color?: string | null;
+  size?: string | null;
+  label: string;
+  countedQty: number;
+  countedAt?: string | null;
+}
+
+export interface StocktakeCountView {
+  stocktake: StocktakeSummary;
+  lines: StocktakeCountLine[];
+}
+
+export interface StocktakeReviewLine {
+  variantId: number;
+  productId: number;
+  productName: string;
+  itemType: ProductType | null;
+  variantCode: string;
+  label: string;
+  /** Stock when the line was (last) counted. */
+  systemQty: number;
+  countedQty: number;
+  variance: number;
+  unitCost?: number | null;
+  unitPrice?: number | null;
+  costValue?: number | null;
+  sellValue?: number | null;
+  reason?: StocktakeReason | null;
+  note?: string | null;
+  /** Set on approval; differs from variance only when clamped at 0. */
+  appliedVariance?: number | null;
+  clamped: boolean;
+}
+
+export interface StocktakeReview {
+  stocktake: StocktakeSummary;
+  lines: StocktakeReviewLine[];
+  uncounted: { variantId: number; productName: string; variantCode: string; label: string }[];
+  linesWithDifference: number;
+  shortageCost: number;
+  surplusCost: number;
+  shortageSell: number;
+  surplusSell: number;
+}
+
+export interface StocktakeImportResult {
+  filled: number;
+  unknown: string[];
+  outOfScope: string[];
+  invalid: string[];
 }

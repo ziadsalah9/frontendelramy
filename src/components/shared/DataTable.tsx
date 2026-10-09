@@ -96,6 +96,7 @@ export function SearchInput({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
+        aria-label={placeholder}
         className="w-full pr-10 pl-4 h-10 rounded-lg border border-input bg-background text-sm focus:ring-2 focus:ring-ring focus:outline-none transition-all"
       />
     </div>
@@ -130,8 +131,10 @@ export function ActionButton({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       title={label}
+      aria-label={label}
       className={`p-2 rounded-lg transition-colors ${
         variant === 'destructive'
           ? 'text-destructive hover:bg-destructive/10'

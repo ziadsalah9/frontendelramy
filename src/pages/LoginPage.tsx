@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { Sofa, Loader2, Eye, EyeOff, Lock, User } from 'lucide-react';
 import { authService } from '@/api/auth';
 import { extractApiError } from '@/api/client';
@@ -7,8 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 
 export default function LoginPage() {
   const navigate = useNavigate();
-  //const { setUser } = useAuth();
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -17,14 +16,17 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
+    if (loading) return;
+    const trimmedUsername = username.trim();
+    if (!trimmedUsername || !password) {
+      setError('أدخل اسم المستخدم وكلمة المرور');
+      return;
+    }
     setError('');
     setLoading(true);
     try {
-      const res = await authService.login({ username, password });
-        // setUser(res.user);
-login(res);
-
-      
+      const res = await authService.login({ username: trimmedUsername, password });
+      login(res);
       navigate('/', { replace: true });
     } catch (err) {
       const apiError = extractApiError(err);
@@ -33,6 +35,9 @@ login(res);
       setLoading(false);
     }
   };
+
+  // Already signed in: the login form would only log in again.
+  if (isAuthenticated) return <Navigate to="/" replace />;
 
   return (
     <div className="min-h-screen flex" dir="rtl">
@@ -56,10 +61,10 @@ login(res);
             لوحة التحكم الإدارية
           </h2>
           <p className="text-lg text-white/70 leading-relaxed">
-            إدارة شاملة للفروع والمنتجات والمخزون والفواتير من مكان واحد
+            إدارة شاملة للمنتجات والمخزون والفواتير من مكان واحد
           </p>
           <div className="mt-12 space-y-4">
-            {['إدارة الفروع والمخزون', 'فواتير الشراء والبيع', 'تقارير وتحليلات فورية'].map((feature) => (
+            {['إدارة المنتجات والمخزون', 'فواتير الشراء والبيع', 'تقارير وتحليلات فورية'].map((feature) => (
               <div key={feature} className="flex items-center gap-3 text-white/80">
                 <div className="w-2 h-2 rounded-full bg-primary" />
                 <span>{feature}</span>
