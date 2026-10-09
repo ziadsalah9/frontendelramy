@@ -20,6 +20,7 @@ import ActivityLogPage from '@/pages/ActivityLogPage';
 import StocktakesPage from '@/pages/StocktakesPage';
 import StocktakeDetailPage from '@/pages/StocktakeDetailPage';
 import SettingsPage from '@/pages/SettingsPage';
+import ReportsPage from '@/pages/ReportsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -90,6 +91,7 @@ export default function App() {
                 }
               />
               <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
+              <Route path="reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
               {/* Stocktaking; ADMIN-only end to end. */}
               <Route path="stocktakes" element={<AdminRoute><StocktakesPage /></AdminRoute>} />
               <Route path="stocktakes/:id" element={<AdminRoute><StocktakeDetailPage /></AdminRoute>} />

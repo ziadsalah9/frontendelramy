@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Undo2 } from 'lucide-react';
+import { Undo2, Printer } from 'lucide-react';
 import { salesReturnsService } from '@/api/salesReturns';
 import { salesInvoicesService } from '@/api/salesInvoices';
 import type { SalesInvoice } from '@/types';
@@ -8,6 +8,8 @@ import { Badge } from '@/components/shared/DataTable';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency, formatDate, getPaymentMethodLabel, variantLabel } from '@/utils/format';
 import { ReturnDialog } from './ReturnDialog';
+import { printReceipt } from '@/utils/print';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 
 /**
  * A sales invoice as shown in the sales and receipts screens: totals, the
@@ -16,6 +18,7 @@ import { ReturnDialog } from './ReturnDialog';
  */
 export function SalesInvoiceDetails({ invoice: initial, actions }: { invoice: SalesInvoice; actions?: React.ReactNode }) {
   const { isAdmin } = useAuth();
+  const settings = useStoreSettings();
   const [invoice, setInvoice] = useState(initial);
   const [returnOpen, setReturnOpen] = useState(false);
   if (initial.id !== invoice.id) setInvoice(initial);
@@ -105,9 +108,12 @@ export function SalesInvoiceDetails({ invoice: initial, actions }: { invoice: Sa
       <p className="text-xs text-muted-foreground">التاريخ: {formatDate(invoice.createdAt)}</p>
       {invoice.notes && <div><p className="text-xs text-muted-foreground mb-1">ملاحظات</p><p className="text-sm">{invoice.notes}</p></div>}
 
-      {(actions || (isAdmin && returnable)) && (
+      {(
         <div className="flex flex-wrap justify-end gap-2 pt-2 border-t">
           {actions}
+          <button type="button" onClick={() => printReceipt(invoice, settings.data)} className="flex items-center gap-2 h-10 px-4 rounded-lg border text-sm font-medium hover:bg-accent">
+            <Printer className="w-4 h-4" /> طباعة الإيصال
+          </button>
           {isAdmin && returnable && (
             <button type="button" onClick={() => setReturnOpen(true)} className="flex items-center gap-2 h-10 px-4 rounded-lg border border-warning/50 text-warning text-sm font-medium hover:bg-warning/10">
               <Undo2 className="w-4 h-4" /> إرجاع أصناف

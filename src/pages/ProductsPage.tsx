@@ -1,12 +1,13 @@
 import { useState, type FormEvent, type ReactNode } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Eye, Trash2, Package, FileSpreadsheet, Boxes, Tags } from 'lucide-react';
+import { Plus, Edit2, Eye, Trash2, Package, FileSpreadsheet, Boxes, Tags, Barcode } from 'lucide-react';
 import { productsService, productPricesService } from '@/api/products';
 import { extractApiError } from '@/api/client';
 import type { Product, ProductType, ProductPriceUpdateInput } from '@/types';
 import { PRODUCT_TYPES } from '@/types';
 import { VariantsEditor } from '@/components/products/VariantsEditor';
 import { FormSection } from '@/components/products/FormSection';
+import { LabelsDialog } from '@/components/products/LabelsDialog';
 import { newVariantRow, duplicateVariantError, overTotalError, type VariantRow } from '@/utils/variants';
 import { PageHeader, ConfirmDialog } from '@/components/shared/States';
 import { formatCurrency } from '@/utils/format';
@@ -73,6 +74,7 @@ export default function ProductsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [viewing, setViewing] = useState<Product | null>(null);
+  const [labelsFor, setLabelsFor] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -296,6 +298,7 @@ export default function ProductsPage() {
       render: (p) => (
         <div className="flex items-center gap-1">
           <ActionButton onClick={() => setViewing(p)} icon={Eye} label="عرض التفاصيل" />
+          <ActionButton onClick={() => setLabelsFor(p)} icon={Barcode} label="طباعة باركود" />
           {isAdmin && <ActionButton onClick={() => openEdit(p)} icon={Edit2} label="تعديل" />}
           {isAdmin && p.active !== false && (
             <ActionButton onClick={() => setDeleteTarget(p)} icon={Trash2} label="تعطيل" variant="destructive" />
@@ -528,6 +531,7 @@ export default function ProductsPage() {
         confirmText="تعطيل"
         destructive
       />
+      <LabelsDialog product={labelsFor} onClose={() => setLabelsFor(null)} />
     </div>
   );
 }

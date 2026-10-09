@@ -591,3 +591,32 @@ export interface SalesReturn {
   createdAt: string;
   items: { invoiceItemId: number; productId: number; productName: string; variantLabel?: string | null; quantity: number; unitRefund: number; total: number }[];
 }
+
+// ---------------------------------------------------------------- reports (ADMIN-only)
+
+export interface SalesReport {
+  from: string;
+  to: string;
+  summary: {
+    invoiceCount: number;
+    grossSales: number;
+    discounts: number;
+    returns: number;
+    netSales: number;
+    /** At the products' current cost price. */
+    costOfSales: number;
+    grossProfit: number;
+    profitMarginPercent: number;
+    cashIn: number;
+    customerPayments: number;
+    purchases: number;
+    /** What all customers owe now. */
+    outstandingBalances: number;
+    linesWithoutCost: number;
+  };
+  days: { date: string; invoices: number; sales: number; returns: number; net: number; profit: number }[];
+  topProducts: { productId: number; name: string; code?: string | null; quantity: number; revenue: number; profit: number }[];
+  slowMovers: { productId: number; name: string; code?: string | null; stock: number; stockValue?: number | null; lastSaleAt?: string | null }[];
+  paymentMethods: { method: PaymentMethod; invoices: number; paid: number }[];
+  stocktakes: { id: number; code: string; title: string; approvedAt: string; shortageCost?: number | null; surplusCost?: number | null }[];
+}
