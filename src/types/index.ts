@@ -284,10 +284,14 @@ export interface PurchaseInvoice {
   remaining?: number;
   createdAt: string;
   branchName?: string;
+  /** Null on purchases made before suppliers existed. */
+  supplierId?: number | null;
+  supplierName?: string | null;
 }
 
 export interface PurchaseInvoiceCreateInput {
   invoiceNumber: string;
+  supplierId: number;
   branchId: number;
   items: { variantId: number; quantity: number; unitPrice: number; discount: number }[];
   discount: number;
@@ -378,7 +382,10 @@ export type ActivityEntity =
   | 'STOCKTAKE'
   | 'SALES_RETURN'
   | 'CUSTOMER_PAYMENT'
-  | 'SETTINGS';
+  | 'SETTINGS'
+  | 'SUPPLIER'
+  | 'EXPENSE'
+  | 'INSTALLMENT';
 
 /** One changed field; `before` is null for new values, `after` for removed ones. */
 export interface ActivityChange {
@@ -607,10 +614,103 @@ export interface SalesReport {
     /** What all customers owe now. */
     outstandingBalances: number;
     linesWithoutCost: number;
+    /** Shop expenses dated in the range. */
+    expenses: number;
+    /** Gross profit minus expenses. */
+    netProfit: number;
   };
   days: { date: string; invoices: number; sales: number; returns: number; net: number; profit: number }[];
   topProducts: { productId: number; name: string; code?: string | null; quantity: number; revenue: number; profit: number }[];
   slowMovers: { productId: number; name: string; code?: string | null; stock: number; stockValue?: number | null; lastSaleAt?: string | null }[];
   paymentMethods: { method: PaymentMethod; invoices: number; paid: number }[];
   stocktakes: { id: number; code: string; title: string; approvedAt: string; shortageCost?: number | null; surplusCost?: number | null }[];
+  expenses: { category: ExpenseCategory; count: number; amount: number }[];
+}
+
+// ---------------------------------------------------------------- suppliers & expenses (ADMIN-only)
+
+export interface Supplier {
+  id: number;
+  name: string;
+  phone?: string | null;
+  address?: string | null;
+  notes?: string | null;
+  active: boolean;
+  /** What we owe this supplier now. */
+  balance: number;
+  createdAt: string;
+}
+
+export interface SupplierInput {
+  name: string;
+  phone?: string | null;
+  address?: string | null;
+  notes?: string | null;
+}
+
+export interface SupplierPayment {
+  id: number;
+  paymentNumber: string;
+  supplierId: number;
+  supplierName: string;
+  branchId?: number | null;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  notes?: string | null;
+  paidByName?: string | null;
+  createdAt: string;
+  balanceAfter?: number | null;
+}
+
+export interface SupplierAccount {
+  supplierId: number;
+  supplierName: string;
+  balance: number;
+  purchasesTotal: number;
+  paidAtPurchase: number;
+  laterPayments: number;
+  entries: { type: 'PURCHASE' | 'PAYMENT'; id: number; number: string; date: string; description: string; amount: number; balanceAfter: number }[];
+}
+
+export type ExpenseCategory =
+  | 'RENT' | 'SALARIES' | 'ELECTRICITY' | 'WATER' | 'PHONE_INTERNET' | 'TRANSPORT'
+  | 'MAINTENANCE' | 'MARKETING' | 'SUPPLIES' | 'TAXES' | 'OTHER';
+
+export const EXPENSE_CATEGORIES: { value: ExpenseCategory; label: string }[] = [
+  { value: 'RENT', label: 'إيجار' },
+  { value: 'SALARIES', label: 'رواتب' },
+  { value: 'ELECTRICITY', label: 'كهرباء' },
+  { value: 'WATER', label: 'مياه' },
+  { value: 'PHONE_INTERNET', label: 'تليفون وإنترنت' },
+  { value: 'TRANSPORT', label: 'نقل ومواصلات' },
+  { value: 'MAINTENANCE', label: 'صيانة' },
+  { value: 'MARKETING', label: 'دعاية وإعلان' },
+  { value: 'SUPPLIES', label: 'مستلزمات' },
+  { value: 'TAXES', label: 'ضرائب ورسوم' },
+  { value: 'OTHER', label: 'أخرى' },
+];
+
+export const expenseCategoryLabel = (c: ExpenseCategory) => EXPENSE_CATEGORIES.find((x) => x.value === c)?.label ?? c;
+
+export interface Expense {
+  id: number;
+  expenseNumber: string;
+  category: ExpenseCategory;
+  description?: string | null;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  /** yyyy-MM-dd */
+  expenseDate: string;
+  branchId?: number | null;
+  createdByName?: string | null;
+  createdAt: string;
+}
+
+export interface ExpenseInput {
+  branchId: number;
+  category: ExpenseCategory;
+  description?: string | null;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  expenseDate: string;
 }

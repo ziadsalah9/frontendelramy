@@ -22,6 +22,8 @@ import {
   ClipboardCheck,
   Settings,
   BarChart3,
+  Truck,
+  Wallet,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLowStockAlerts } from '@/hooks/useLowStockAlerts';
@@ -51,6 +53,9 @@ const navItems = [
   { to: '/stocktakes', label: 'الجرد', icon: ClipboardCheck, adminOnly: true, exact: false },
   // /api/purchase-invoices is ADMIN-only in full.
   { to: '/purchase-invoices', label: 'فواتير الشراء', icon: ShoppingCart, adminOnly: true, exact: false },
+  // Suppliers and expenses are ADMIN-only end to end.
+  { to: '/suppliers', label: 'الموردين', icon: Truck, adminOnly: true, exact: false },
+  { to: '/expenses', label: 'المصروفات', icon: Wallet, adminOnly: true, exact: false },
   { to: '/sales-invoices', label: 'فواتير البيع', icon: Receipt, adminOnly: false, exact: false },
   // /api/users is ADMIN-only in full, so employees cannot open this page.
   { to: '/users', label: 'المستخدمون', icon: UserCog, adminOnly: true, exact: false },

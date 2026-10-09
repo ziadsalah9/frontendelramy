@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { TrendingUp, Wallet, Undo2, Percent, ShoppingCart, Users, AlertTriangle } from 'lucide-react';
+import { TrendingUp, Wallet, Undo2, Percent, ShoppingCart, Users, AlertTriangle, Receipt } from 'lucide-react';
 import { reportsService } from '@/api/reports';
 import { extractApiError } from '@/api/client';
-import type { SalesReport } from '@/types';
+import { expenseCategoryLabel, type SalesReport } from '@/types';
 import { PageHeader, LoadingState, ErrorState } from '@/components/shared/States';
 import { formatCurrency, formatDate, getPaymentMethodLabel, todayLocalISO } from '@/utils/format';
 
@@ -105,6 +105,8 @@ function ReportBody({ r, fetching }: { r: SalesReport; fetching: boolean }) {
         <Kpi icon={Percent} label="مجمل الربح" value={money(s.grossProfit)} hint={`هامش ${formatCurrency(s.profitMarginPercent)}% · التكلفة ${formatCurrency(s.costOfSales)}`} tone={s.grossProfit < 0 ? 'text-destructive' : 'text-success'} />
         <Kpi icon={Wallet} label="النقدية الداخلة" value={money(s.cashIn)} hint={`تحصيلات ${formatCurrency(s.customerPayments)}`} />
         <Kpi icon={Undo2} label="المرتجعات والخصومات" value={money(s.returns)} hint={`خصومات ${formatCurrency(s.discounts)}`} tone={s.returns > 0 ? 'text-warning' : ''} />
+        <Kpi icon={Receipt} label="المصروفات" value={money(s.expenses)} hint={`صافي الربح بعد المصروفات: ${formatCurrency(s.netProfit)} ج.م`} tone={s.expenses > 0 ? 'text-warning' : ''} />
+        <Kpi icon={Percent} label="صافي الربح" value={money(s.netProfit)} hint="مجمل الربح ناقص المصروفات" tone={s.netProfit < 0 ? 'text-destructive' : 'text-success'} />
         <Kpi icon={ShoppingCart} label="المشتريات" value={money(s.purchases)} />
         <Kpi icon={Users} label="مستحقات على العملاء (الآن)" value={money(s.outstandingBalances)} tone={s.outstandingBalances > 0 ? 'text-destructive' : ''} />
       </div>
@@ -141,6 +143,8 @@ function ReportBody({ r, fetching }: { r: SalesReport; fetching: boolean }) {
       <div className="grid gap-4 lg:grid-cols-2">
         <TableCard title="الأكثر مبيعاً" empty="لا توجد مبيعات" head={['المنتج', 'الكمية', 'المبيعات', 'الربح']}
           rows={r.topProducts.map((p) => [p.name, String(p.quantity), formatCurrency(p.revenue), formatCurrency(p.profit)])} />
+        <TableCard title="المصروفات حسب النوع" empty="لا توجد مصروفات" head={['النوع', 'العدد', 'المبلغ']}
+          rows={r.expenses.map((e) => [expenseCategoryLabel(e.category), String(e.count), formatCurrency(e.amount)])} />
         <TableCard title="طرق الدفع" empty="لا توجد مبيعات" head={['الطريقة', 'الفواتير', 'المدفوع']}
           rows={r.paymentMethods.map((m) => [getPaymentMethodLabel(m.method), String(m.invoices), formatCurrency(m.paid)])} />
         <TableCard title="راكد (بدون بيع منذ 60 يوماً)" empty="لا توجد منتجات راكدة" head={['المنتج', 'المخزون', 'قيمة المخزون', 'آخر بيع']}

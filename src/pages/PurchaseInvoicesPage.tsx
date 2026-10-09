@@ -14,6 +14,7 @@ import { sanitizeDecimal, sanitizeInt, matches, MAX_INVOICE_NUMBER, MAX_NOTES } 
 import { useMainBranch } from '@/hooks/useMainBranch';
 import { ClosedBranchBadge } from '@/components/shared/ClosedBranchBadge';
 import { toast } from 'sonner';
+import { suppliersService } from '@/api/suppliers';
 import { useDateRange } from '@/hooks/useDateRange';
 import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 
@@ -22,6 +23,8 @@ interface FormItem { key: number; productId: string; variantId: string; quantity
 
 interface FormState {
   invoiceNumber: string;
+  /** Required on new purchases (V20). */
+  supplierId: string;
   discount: string;
   paid: string;
   paidTouched: boolean;
@@ -30,13 +33,13 @@ interface FormState {
   items: FormItem[];
 }
 
-type FieldErrors = Partial<Record<'invoiceNumber' | 'discount' | 'paid' | 'notes', string>>;
+type FieldErrors = Partial<Record<'invoiceNumber' | 'supplierId' | 'discount' | 'paid' | 'notes', string>>;
 
 /** Stable React key: removing a middle line must not shift the others' inputs. */
 let nextKey = 0;
 const emptyItem = (): FormItem => ({ key: ++nextKey, productId: '', variantId: '', quantity: '1', unitPrice: '', discount: '0' });
 const emptyForm = (): FormState => ({
-  invoiceNumber: '', discount: '0', paid: '', paidTouched: false,
+  invoiceNumber: '', supplierId: '', discount: '0', paid: '', paidTouched: false,
   paymentMethod: 'CASH', notes: '', items: [emptyItem()],
 });
 
@@ -57,6 +60,7 @@ export default function PurchaseInvoicesPage() {
   const range = useDateRange();
   const { data: invoices, isLoading, error: queryError } = useQuery({ queryKey: ['purchase-invoices', { from: range.from, to: range.to }], queryFn: () => purchaseInvoicesService.getAll({ from: range.from, to: range.to }) });
   // Single-branch mode: stock always goes into the shop's one branch.
+  const { data: suppliers, isLoading: suppliersLoading } = useQuery({ queryKey: ['suppliers'], queryFn: suppliersService.getAll, enabled: modalOpen });
   const { branchId: mainBranchId } = useMainBranch();
   const { data: products } = useQuery({ queryKey: ['products'], queryFn: productsService.getAll });
 
@@ -119,6 +123,7 @@ export default function PurchaseInvoicesPage() {
   // Mirrors CreatePurchaseInvoiceRequest + PurchaseInvoiceServiceImpl.
   const validate = () => {
     const fields: FieldErrors = {};
+    if (!form.supplierId) fields.supplierId = 'اختر المورد (أضفه من صفحة الموردين إن لم يكن موجوداً)';
     const items: Record<number, string> = {};
 
     const invoiceNumber = form.invoiceNumber.trim();
@@ -177,6 +182,7 @@ export default function PurchaseInvoicesPage() {
     try {
       await purchaseInvoicesService.create({
         invoiceNumber: form.invoiceNumber.trim(),
+        supplierId: Number(form.supplierId),
         branchId: mainBranchId!,
         items: form.items
           .filter((i) => i.productId)
@@ -208,6 +214,7 @@ export default function PurchaseInvoicesPage() {
         </div>
       ),
     },
+    { key: 'supplier', header: 'المورد', render: (inv) => inv.supplierName ?? <span className="text-muted-foreground">-</span> },
     { key: 'items', header: 'المنتجات', render: (inv) => <span className="text-sm">{inv.items?.length ?? 0} منتج</span> },
     { key: 'total', header: 'الإجمالي', render: (inv) => <span className="font-bold">{formatCurrency(inv.total)} ج.م</span> },
     { key: 'paid', header: 'المدفوع', render: (inv) => <span className="text-success font-medium">{formatCurrency(inv.paid)} ج.م</span> },
@@ -247,7 +254,18 @@ export default function PurchaseInvoicesPage() {
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title="فاتورة شراء جديدة" maxWidth="max-w-3xl" persistent busy={loading}>
         <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          <FormInput label="رقم فاتورة المورد" value={form.invoiceNumber} onChange={(v) => setForm({ ...form, invoiceNumber: v })} required placeholder="PUR-2026-0001" dir="ltr" maxLength={MAX_INVOICE_NUMBER} error={fieldErrors.invoiceNumber} />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <FormSelect
+              label="المورد"
+              value={form.supplierId}
+              onChange={(v) => setForm({ ...form, supplierId: v })}
+              options={(suppliers ?? []).filter((x) => x.active).map((x) => ({ value: String(x.id), label: x.name }))}
+              required
+              placeholder={suppliersLoading ? 'جاري التحميل...' : 'اختر المورد'}
+              error={fieldErrors.supplierId}
+            />
+            <FormInput label="رقم فاتورة المورد" value={form.invoiceNumber} onChange={(v) => setForm({ ...form, invoiceNumber: v })} required placeholder="PUR-2026-0001" dir="ltr" maxLength={MAX_INVOICE_NUMBER} error={fieldErrors.invoiceNumber} />
+          </div>
 
           <div>
             <div className="flex items-center justify-between mb-2">

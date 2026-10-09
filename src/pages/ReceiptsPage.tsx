@@ -1,15 +1,17 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Eye, Receipt, ShoppingCart, Calculator, AlertTriangle, Undo2, Wallet } from 'lucide-react';
+import { Eye, Receipt, ShoppingCart, Calculator, AlertTriangle, Undo2, Wallet, Truck } from 'lucide-react';
 import { salesInvoicesService } from '@/api/salesInvoices';
 import { purchaseInvoicesService } from '@/api/purchaseInvoices';
 import { cashClosingsService, type CashClosingResponse } from '@/api/cashClosings';
 import { extractApiError } from '@/api/client';
-import type { PurchaseInvoice, SalesInvoice, PaymentMethod, SalesReturn, CustomerPayment } from '@/types';
+import { expenseCategoryLabel, type PurchaseInvoice, type SalesInvoice, type PaymentMethod, type SalesReturn, type CustomerPayment, type SupplierPayment, type Expense } from '@/types';
 import { salesReturnsService } from '@/api/salesReturns';
 import { customerAccountsService } from '@/api/customerAccounts';
 import { SalesInvoiceDetails } from '@/components/sales/SalesInvoiceDetails';
-import { PurchaseInvoiceDetails, CashClosingDetails, ReturnDetails, PaymentDetails } from '@/components/receipts/ReceiptDetails';
+import { PurchaseInvoiceDetails, CashClosingDetails, ReturnDetails, PaymentDetails, SupplierPaymentDetails, ExpenseDetails } from '@/components/receipts/ReceiptDetails';
+import { suppliersService } from '@/api/suppliers';
+import { expensesService } from '@/api/expenses';
 import { round2 } from '@/utils/pricing';
 import { useDateRange } from '@/hooks/useDateRange';
 import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
@@ -21,7 +23,7 @@ import { matches } from '@/utils/validation';
 import { useAuth } from '@/hooks/useAuth';
 import { ClosedBranchBadge } from '@/components/shared/ClosedBranchBadge';
 
-type Kind = 'SALE' | 'RETURN' | 'PAYMENT' | 'PURCHASE' | 'CASH_CLOSING';
+type Kind = 'SALE' | 'RETURN' | 'PAYMENT' | 'PURCHASE' | 'SUPPLIER_PAYMENT' | 'EXPENSE' | 'CASH_CLOSING';
 
 /** One row of the unified list, whatever document it came from. */
 interface ReceiptRow {
@@ -41,13 +43,15 @@ interface ReceiptRow {
   /** Remaining balance for invoices, counted - expected for cash closings. */
   balance: number;
   paymentMethod?: PaymentMethod;
-  source: SalesInvoice | PurchaseInvoice | CashClosingResponse | SalesReturn | CustomerPayment;
+  source: SalesInvoice | PurchaseInvoice | CashClosingResponse | SalesReturn | CustomerPayment | SupplierPayment | Expense;
 }
 
 const KIND_META: Record<Kind, { label: string; variant: 'info' | 'warning' | 'success' | 'destructive' | 'default'; icon: typeof Receipt }> = {
   SALE: { label: 'فاتورة بيع', variant: 'info', icon: Receipt },
   RETURN: { label: 'مرتجع', variant: 'destructive', icon: Undo2 },
   PAYMENT: { label: 'تحصيل', variant: 'default', icon: Wallet },
+  SUPPLIER_PAYMENT: { label: 'دفعة مورد', variant: 'warning', icon: Truck },
+  EXPENSE: { label: 'مصروف', variant: 'destructive', icon: Wallet },
   PURCHASE: { label: 'فاتورة شراء', variant: 'warning', icon: ShoppingCart },
   CASH_CLOSING: { label: 'إغلاق كاش', variant: 'success', icon: Calculator },
 };
@@ -83,6 +87,8 @@ export default function ReceiptsPage() {
   // GET /api/cash-closings is ADMIN-only; employees read their own branch.
   const returnsQ = useQuery({ queryKey: ['sales-returns', params], queryFn: () => salesReturnsService.getAll(params) });
   const paymentsQ = useQuery({ queryKey: ['customer-payments', params], queryFn: () => customerAccountsService.getAllPayments(params) });
+  const supplierPaymentsQ = useQuery({ queryKey: ['supplier-payments', params], queryFn: () => suppliersService.getAllPayments(params), enabled: isAdmin });
+  const expensesQ = useQuery({ queryKey: ['expenses', params], queryFn: () => expensesService.getAll(params), enabled: isAdmin });
   const closings = useQuery({
     queryKey: ['cash-closings', isAdmin ? 'all' : ownBranchId],
     queryFn: () => (isAdmin ? cashClosingsService.getAll() : cashClosingsService.getByBranch(ownBranchId!)),
@@ -162,6 +168,23 @@ export default function ReceiptsPage() {
         source: p,
       });
     }
+    for (const p of isAdmin ? supplierPaymentsQ.data ?? [] : []) {
+      out.push({
+        id: `SUPPLIER-PAYMENT-${p.id}`, kind: 'SUPPLIER_PAYMENT', number: p.paymentNumber,
+        timestamp: new Date(p.createdAt).getTime(), day: localDay(p.createdAt), dateLabel: formatDate(p.createdAt),
+        branchId: p.branchId ?? 0, branchName: branchName(p.branchId ?? 0), party: p.supplierName,
+        total: p.amount, paid: p.amount, balance: 0, paymentMethod: p.paymentMethod, source: p,
+      });
+    }
+    for (const e of isAdmin ? expensesQ.data ?? [] : []) {
+      out.push({
+        id: `EXPENSE-${e.id}`, kind: 'EXPENSE', number: e.expenseNumber,
+        // An expense belongs to its own date, not when it was typed in.
+        timestamp: new Date(`${e.expenseDate}T12:00:00`).getTime(), day: e.expenseDate, dateLabel: e.expenseDate,
+        branchId: e.branchId ?? 0, branchName: branchName(e.branchId ?? 0), party: expenseCategoryLabel(e.category),
+        total: e.amount, paid: e.amount, balance: 0, paymentMethod: e.paymentMethod, source: e,
+      });
+    }
     for (const c of closings.data ?? []) {
       out.push({
         id: `CASH-${c.id}`,
@@ -180,7 +203,7 @@ export default function ReceiptsPage() {
       });
     }
     return out.sort((a, b) => b.timestamp - a.timestamp);
-  }, [sales.data, purchases.data, closings.data, returnsQ.data, paymentsQ.data, isAdmin]);
+  }, [sales.data, purchases.data, closings.data, returnsQ.data, paymentsQ.data, supplierPaymentsQ.data, expensesQ.data, isAdmin]);
 
   // Everything except the type filter, so the type tabs can show counts.
   const baseFiltered = rows.filter(
@@ -208,12 +231,16 @@ export default function ReceiptsPage() {
     closings.error && 'إغلاقات الكاش',
     returnsQ.error && 'المرتجعات',
     paymentsQ.error && 'التحصيلات',
+    isAdmin && supplierPaymentsQ.error && 'دفعات الموردين',
+    isAdmin && expensesQ.error && 'المصروفات',
   ].filter(Boolean) as string[];
   const allFailed = failed.length > 0 && rows.length === 0;
 
   const resetPaging = () => setLimit(PAGE_SIZE);
 
-  const kinds: Kind[] = isAdmin ? ['SALE', 'RETURN', 'PAYMENT', 'PURCHASE', 'CASH_CLOSING'] : ['SALE', 'RETURN', 'PAYMENT', 'CASH_CLOSING'];
+  const kinds: Kind[] = isAdmin
+    ? ['SALE', 'RETURN', 'PAYMENT', 'PURCHASE', 'SUPPLIER_PAYMENT', 'EXPENSE', 'CASH_CLOSING']
+    : ['SALE', 'RETURN', 'PAYMENT', 'CASH_CLOSING'];
 
   const columns: Column<ReceiptRow>[] = [
     { key: 'kind', header: 'النوع', render: (r) => <Badge variant={KIND_META[r.kind].variant}>{KIND_META[r.kind].label}</Badge> },
@@ -231,13 +258,16 @@ export default function ReceiptsPage() {
     { key: 'party', header: 'العميل / المسؤول', render: (r) => r.party },
     {
       key: 'total', header: 'الإجمالي',
-      render: (r) => <span className={`font-bold whitespace-nowrap ${r.kind === 'RETURN' ? 'text-destructive' : r.kind === 'PAYMENT' ? 'text-success' : ''}`}>{r.kind === 'RETURN' ? '-' : ''}{formatCurrency(r.total)} ج.م</span>,
+      render: (r) => {
+        const out = r.kind === 'RETURN' || r.kind === 'SUPPLIER_PAYMENT' || r.kind === 'EXPENSE';
+        return <span className={`font-bold whitespace-nowrap ${out ? 'text-destructive' : r.kind === 'PAYMENT' ? 'text-success' : ''}`}>{out ? '-' : ''}{formatCurrency(r.total)} ج.م</span>;
+      },
     },
     {
       key: 'balance', header: 'المتبقي / الفرق',
       render: (r) => r.kind === 'RETURN'
         ? <span className="whitespace-nowrap text-xs text-muted-foreground">نقداً {formatCurrency(r.balance)} ج.م</span>
-        : r.kind === 'PAYMENT'
+        : r.kind === 'PAYMENT' || r.kind === 'SUPPLIER_PAYMENT' || r.kind === 'EXPENSE'
         ? <span className="text-muted-foreground">-</span>
         : r.kind === 'CASH_CLOSING'
         ? <span className={`whitespace-nowrap font-medium ${r.balance === 0 ? 'text-success' : r.balance > 0 ? 'text-warning' : 'text-destructive'}`}>{r.balance > 0 ? '+' : ''}{formatCurrency(r.balance)} ج.م</span>
@@ -321,6 +351,10 @@ export default function ReceiptsPage() {
           ? <ReturnDetails ret={viewing.source as SalesReturn} />
           : viewing.kind === 'PAYMENT'
           ? <PaymentDetails payment={viewing.source as CustomerPayment} />
+          : viewing.kind === 'SUPPLIER_PAYMENT'
+          ? <SupplierPaymentDetails payment={viewing.source as SupplierPayment} />
+          : viewing.kind === 'EXPENSE'
+          ? <ExpenseDetails expense={viewing.source as Expense} />
           : <PurchaseInvoiceDetails invoice={viewing.source as PurchaseInvoice} />)}
       </Modal>
     </div>

@@ -1,4 +1,4 @@
-import type { CustomerPayment, PurchaseInvoice, SalesReturn } from '@/types';
+import { expenseCategoryLabel, type CustomerPayment, type Expense, type PurchaseInvoice, type SalesReturn, type SupplierPayment } from '@/types';
 import type { CashClosingResponse } from '@/api/cashClosings';
 import { Badge } from '@/components/shared/DataTable';
 import { ClosedBranchBadge } from '@/components/shared/ClosedBranchBadge';
@@ -118,6 +118,32 @@ export function PaymentDetails({ payment }: { payment: CustomerPayment }) {
       <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">استلمه</p><p className="text-sm font-medium">{payment.receivedByName ?? '-'}</p></div>
       {payment.notes && <p className="col-span-2 text-sm"><span className="text-muted-foreground">ملاحظات: </span>{payment.notes}</p>}
       <p className="col-span-2 text-xs text-muted-foreground">التاريخ: {formatDate(payment.createdAt)}</p>
+    </div>
+  );
+}
+
+export function SupplierPaymentDetails({ payment }: { payment: SupplierPayment }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">المورد</p><p className="text-sm font-medium">{payment.supplierName}</p></div>
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">المبلغ</p><p className="text-lg font-bold text-destructive">{formatCurrency(payment.amount)} ج.م</p></div>
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">طريقة الدفع</p><Badge variant="info">{getPaymentMethodLabel(payment.paymentMethod)}</Badge></div>
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">بواسطة</p><p className="text-sm font-medium">{payment.paidByName ?? '-'}</p></div>
+      {payment.notes && <p className="col-span-2 text-sm"><span className="text-muted-foreground">ملاحظات: </span>{payment.notes}</p>}
+      <p className="col-span-2 text-xs text-muted-foreground">التاريخ: {formatDate(payment.createdAt)}</p>
+    </div>
+  );
+}
+
+export function ExpenseDetails({ expense }: { expense: Expense }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">النوع</p><p className="text-sm font-medium">{expenseCategoryLabel(expense.category)}</p></div>
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">المبلغ</p><p className="text-lg font-bold text-destructive">{formatCurrency(expense.amount)} ج.م</p></div>
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">طريقة الدفع</p><Badge variant="info">{getPaymentMethodLabel(expense.paymentMethod)}</Badge></div>
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">التاريخ</p><p className="text-sm font-medium" dir="ltr">{expense.expenseDate}</p></div>
+      {expense.description && <p className="col-span-2 text-sm"><span className="text-muted-foreground">الوصف: </span>{expense.description}</p>}
+      <p className="col-span-2 text-xs text-muted-foreground">سجّله: {expense.createdByName ?? '-'}</p>
     </div>
   );
 }
