@@ -5,7 +5,8 @@ import { ClipboardCheck, Plus, Eye } from 'lucide-react';
 import { toast } from 'sonner';
 import { stocktakesService } from '@/api/stocktakes';
 import { extractApiError } from '@/api/client';
-import { PRODUCT_TYPES, type ProductType, type StocktakeSummary } from '@/types';
+import type { ProductType, StocktakeSummary } from '@/types';
+import { useProductTypeOptions } from '@/hooks/useProductTypes';
 import { STOCKTAKE_STATUS, scopeText } from '@/components/stocktake/meta';
 import { PageHeader } from '@/components/shared/States';
 import { DataTable, ActionButton, Badge, type Column } from '@/components/shared/DataTable';
@@ -23,6 +24,7 @@ export default function StocktakesPage() {
   const [title, setTitle] = useState('');
   const [allTypes, setAllTypes] = useState(true);
   const [types, setTypes] = useState<ProductType[]>([]);
+  const { options: typeOptions } = useProductTypeOptions();
   const [notes, setNotes] = useState('');
   const [formError, setFormError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -126,7 +128,7 @@ export default function StocktakesPage() {
             </label>
             {!allTypes && (
               <div className="flex flex-wrap gap-2 pt-1">
-                {PRODUCT_TYPES.map((t) => {
+                {typeOptions.map((t) => {
                   const on = types.includes(t.value);
                   return (
                     <button

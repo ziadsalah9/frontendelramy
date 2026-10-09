@@ -4,7 +4,7 @@ import { Plus, Edit2, Eye, Trash2, Package, FileSpreadsheet, Boxes, Tags, Barcod
 import { productsService, productPricesService } from '@/api/products';
 import { extractApiError } from '@/api/client';
 import type { Product, ProductType, ProductPriceUpdateInput } from '@/types';
-import { PRODUCT_TYPES } from '@/types';
+import { useProductTypeOptions } from '@/hooks/useProductTypes';
 import { VariantsEditor } from '@/components/products/VariantsEditor';
 import { FormSection } from '@/components/products/FormSection';
 import { LabelsDialog } from '@/components/products/LabelsDialog';
@@ -74,6 +74,7 @@ export default function ProductsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [viewing, setViewing] = useState<Product | null>(null);
+  const { options: typeOptions } = useProductTypeOptions(editing?.itemType);
   const [labelsFor, setLabelsFor] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -347,7 +348,7 @@ export default function ProductsPage() {
                 label="النوع"
                 value={form.type}
                 onChange={(v) => setForm({ ...form, type: v as ProductType })}
-                options={PRODUCT_TYPES}
+                options={typeOptions}
                 required
                 placeholder="اختر النوع"
                 error={fieldErrors.type}

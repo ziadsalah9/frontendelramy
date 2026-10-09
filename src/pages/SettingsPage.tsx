@@ -10,6 +10,7 @@ import { FormError, FormInput, FormTextarea, SubmitButton } from '@/components/s
 import { FormSection } from '@/components/products/FormSection';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { sanitizeDecimal } from '@/utils/validation';
+import { ProductTypesSection } from '@/components/settings/ProductTypesSection';
 
 type Form = { storeName: string; phone: string; address: string; receiptFooter: string; employeeMaxDiscountPercent: string };
 
@@ -82,6 +83,11 @@ export default function SettingsPage() {
         </FormSection>
         <SubmitButton loading={saving} label="حفظ الإعدادات" />
       </form>
+
+      {/* Separate from the form above: each change is saved right away. */}
+      <div className="mt-6">
+        <ProductTypesSection />
+      </div>
     </div>
   );
 }

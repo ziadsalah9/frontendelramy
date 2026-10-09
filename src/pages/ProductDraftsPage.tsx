@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { productDraftsService } from '@/api/productDrafts';
 import { extractApiError } from '@/api/client';
 import type { ProductDraft, ProductDraftInput, ProductType } from '@/types';
-import { PRODUCT_TYPES } from '@/types';
+import { useProductTypeOptions } from '@/hooks/useProductTypes';
 import { PageHeader, ConfirmDialog } from '@/components/shared/States';
 import { DataTable, SearchInput, ActionButton, Badge, type Column } from '@/components/shared/DataTable';
 import { Modal, FormInput, FormSelect, FormError } from '@/components/shared/Modal';
@@ -89,6 +89,7 @@ export default function ProductDraftsPage() {
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<ProductDraft | null>(null);
   const [form, setForm] = useState<DraftForm | null>(null);
+  const { options: typeOptions } = useProductTypeOptions(editing?.itemType);
   const [anchor, setAnchor] = useState<PriceAnchor>('profit');
   const [saving, setSaving] = useState<'draft' | 'complete' | null>(null);
   const [error, setError] = useState('');
@@ -270,7 +271,7 @@ export default function ProductDraftsPage() {
             <FormSection icon={Package} title="البيانات الأساسية">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <FormInput label="الاسم" value={form.name} onChange={(v) => setForm({ ...form, name: v })} required placeholder="اسم المنتج" maxLength={MAX_NAME} />
-                <FormSelect label="النوع" value={form.type} onChange={(v) => setForm({ ...form, type: v as ProductType })} options={PRODUCT_TYPES} required placeholder="اختر النوع" />
+                <FormSelect label="النوع" value={form.type} onChange={(v) => setForm({ ...form, type: v as ProductType })} options={typeOptions} required placeholder="اختر النوع" />
                 <FormInput label="الموديل" value={form.model} onChange={(v) => setForm({ ...form, model: v })} placeholder="اختياري" maxLength={MAX_MODEL} />
                 <FormInput label="الحد الأدنى للكمية (تنبيه)" type="text" inputMode="numeric" value={form.minimumQuantity} onChange={(v) => setForm({ ...form, minimumQuantity: sanitizeInt(v) })} placeholder="اختياري" dir="ltr" />
               </div>

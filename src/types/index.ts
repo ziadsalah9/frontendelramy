@@ -43,29 +43,17 @@ export interface Branch {
   active?: boolean;
 }
 
-export type ProductType =
-  | 'لحاف' | 'بطانيه' | 'طقم' | 'فوط' | 'دفاية' | 'برنس'
-  | 'مفارش' | 'حافظة' | 'مشاية' | 'كوفرتة' | 'مصلية' | 'نيش'
-  | 'سفرة' | 'انترية' | 'سراحة' | 'OTHER';
+/** Name of a product type; types are managed by admins (product_types, see useProductTypes). */
+export type ProductType = string;
 
-export const PRODUCT_TYPES: { value: ProductType; label: string }[] = [
-  { value: 'لحاف', label: 'لحاف' },
-  { value: 'بطانيه', label: 'بطانيه' },
-  { value: 'طقم', label: 'طقم' },
-  { value: 'فوط', label: 'فوط' },
-  { value: 'دفاية', label: 'دفاية' },
-  { value: 'برنس', label: 'برنس' },
-  { value: 'مفارش', label: 'مفارش' },
-  { value: 'حافظة', label: 'حافظة' },
-  { value: 'مشاية', label: 'مشاية' },
-  { value: 'كوفرتة', label: 'كوفرتة' },
-  { value: 'مصلية', label: 'مصلية' },
-  { value: 'نيش', label: 'نيش' },
-  { value: 'سفرة', label: 'سفرة' },
-  { value: 'انترية', label: 'انترية' },
-  { value: 'سراحة', label: 'سراحة' },
-  { value: 'OTHER', label: 'أخرى' },
-];
+export interface ItemType {
+  id: number;
+  name: string;
+  active: boolean;
+  /** How many products / incomplete products use it (admin list only). */
+  products: number;
+  drafts: number;
+}
 
 export const PRODUCT_COLORS: { value: string; label: string }[] = [
   { value: 'أبيض', label: 'أبيض' },
