@@ -8,7 +8,7 @@ import { extractApiError } from '@/api/client';
 import type { SalesInvoice, PaymentMethod } from '@/types';
 import { PAYMENT_METHODS } from '@/types';
 import { Modal, FormInput, FormSelect, FormTextarea, FormError, SubmitButton } from '@/components/shared/Modal';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, todayLocalISO } from '@/utils/format';
 import {
   sanitizeDecimal, sanitizeInt, isValidPhone,
   MAX_NAME, MAX_ADDRESS, MAX_NOTES,
@@ -47,14 +47,23 @@ interface FormState {
   paidTouched: boolean;
   /** Cash part of a MIXED payment (for the cash closing). */
   cashAmount: string;
+  /** Installment sale (admin): the down payment is `paid`, the rest is split by month. */
+  installment: { enabled: boolean; months: string; markupPercent: string; firstDueDate: string };
   notes: string;
   items: FormItem[];
 }
 
-type FieldErrors = Partial<Record<'branchId' | 'customer' | 'customerName' | 'customerPhone' | 'customerAddress' | 'discount' | 'paid' | 'cashAmount' | 'notes' | 'items', string>>;
+type FieldErrors = Partial<Record<'branchId' | 'customer' | 'customerName' | 'customerPhone' | 'customerAddress' | 'discount' | 'paid' | 'cashAmount' | 'installment' | 'notes' | 'items', string>>;
 
 let nextKey = 0;
 const emptyItem = (): FormItem => ({ key: ++nextKey, productId: '', variantId: '', quantity: '1', discount: '0', discountPercent: '0', discountMode: 'percent' });
+
+/** Same day next month, local time (default first installment). */
+const nextMonthISO = () => {
+  const d = new Date();
+  d.setMonth(d.getMonth() + 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -68,6 +77,7 @@ const makeEmptyForm = (): FormState => ({
   discount: '0',
   paid: '',
   cashAmount: '',
+  installment: { enabled: false, months: '6', markupPercent: '0', firstDueDate: nextMonthISO() },
   paidTouched: false,
   notes: '',
   items: [emptyItem()],
@@ -236,6 +246,13 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
   const paidValue = form.paidTouched ? form.paid : total.toString();
   const paid = Number(paidValue) || 0;
   const remaining = round2(total - paid);
+  // Installment preview, same rounding as the server (InstallmentService).
+  const inst = form.installment;
+  const instMonths = Math.max(1, Math.min(60, Number(inst.months) || 0));
+  const instMarkup = round2((remaining * (Number(inst.markupPercent) || 0)) / 100);
+  const instTotal = round2(remaining + instMarkup);
+  const instEach = Math.floor((instTotal / instMonths) * 100) / 100;
+  const instLast = round2(instTotal - instEach * (instMonths - 1));
   // Employee discount limit (store settings), on line + invoice discounts
   // together, as a share of the invoice before discounts - like the server.
   const gross = round2(form.items.reduce((sum, item) => sum + (item.productId ? price(item.productId) * (Number(item.quantity) || 0) : 0), 0));
@@ -295,6 +312,14 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
     if (!fields.discount && discountOverLimit) {
       fields.discount = `الخصم المسموح للموظف حتى ${maxDiscountPercent}% (${formatCurrency(allowedDiscount)} ج.م). اطلب من المدير.`;
     }
+    if (inst.enabled) {
+      const months = Number(inst.months);
+      const pct = Number(inst.markupPercent);
+      if (!Number.isInteger(months) || months < 1 || months > 60) fields.installment = 'عدد الشهور من 1 إلى 60';
+      else if (inst.markupPercent === '' || pct < 0 || pct > 100) fields.installment = 'نسبة الزيادة من 0 إلى 100%';
+      else if (remaining <= 0) fields.installment = 'لا يوجد متبقٍ للتقسيط: قلل المقدم (المدفوع الآن)';
+      else if (!inst.firstDueDate || inst.firstDueDate < todayLocalISO()) fields.installment = 'تاريخ أول قسط لا يكون في الماضي';
+    }
     if (form.paymentMethod === 'MIXED') {
       if (form.cashAmount.trim() === '') fields.cashAmount = 'اكتب الجزء المدفوع نقداً';
       else if (Number(form.cashAmount) > paid) fields.cashAmount = 'الجزء النقدي أكبر من المدفوع';
@@ -337,6 +362,9 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
         discount: invoiceDiscount,
         paid,
         cashAmount: form.paymentMethod === 'MIXED' ? Number(form.cashAmount) : undefined,
+        installment: inst.enabled
+          ? { months: Number(inst.months), markupPercent: Number(inst.markupPercent), firstDueDate: inst.firstDueDate }
+          : undefined,
         notes: form.notes.trim() || undefined,
       });
       toast.success(`تم إنشاء فاتورة البيع ${created.invoiceNumber ?? ''} بنجاح`);
@@ -346,6 +374,7 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['cash-closings-summary'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
+      queryClient.invalidateQueries({ queryKey: ['installments-due'] });
       onCreated(created);
     } catch (err) {
       setError(extractApiError(err).message);
@@ -500,6 +529,42 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
           <button type="button" onClick={() => setForm({ ...form, paid: '', paidTouched: false })} className="text-xs text-primary hover:underline">
             اجعل المدفوع = الإجمالي
           </button>
+        )}
+
+        {isAdmin && (
+          <div className={`p-4 rounded-lg border space-y-3 ${inst.enabled ? 'border-primary/40 bg-primary/5' : ''}`}>
+            <label className="flex items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={inst.enabled}
+                onChange={(e) => setForm({
+                  ...form,
+                  installment: { ...inst, enabled: e.target.checked },
+                  // On installments "paid" is the down payment, typed by the cashier.
+                  ...(e.target.checked && !form.paidTouched ? { paid: '0', paidTouched: true } : {}),
+                })}
+              />
+              بيع بالتقسيط
+            </label>
+            {inst.enabled && (
+              <>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <FormInput label="عدد الشهور" type="text" inputMode="numeric" value={inst.months} onChange={(v) => setForm({ ...form, installment: { ...inst, months: sanitizeInt(v).slice(0, 2) } })} dir="ltr" required />
+                  <FormInput label="نسبة الزيادة %" type="text" inputMode="decimal" value={inst.markupPercent} onChange={(v) => setForm({ ...form, installment: { ...inst, markupPercent: sanitizeDecimal(v).slice(0, 6) } })} dir="ltr" required />
+                  <FormInput label="أول قسط" type="date" value={inst.firstDueDate} min={todayLocalISO()} onChange={(v) => setForm({ ...form, installment: { ...inst, firstDueDate: v } })} required />
+                </div>
+                <p className="text-sm">
+                  المقدم (المدفوع الآن): <strong>{formatCurrency(paid)}</strong> · المتبقي: <strong>{formatCurrency(remaining)}</strong>
+                  {instMarkup > 0 && <> · الزيادة: <strong>{formatCurrency(instMarkup)}</strong></>}
+                  {' '}· إجمالي الأقساط: <strong>{formatCurrency(instTotal)}</strong>
+                </p>
+                <p className="text-sm text-primary font-medium">
+                  {instMonths} قسط × {formatCurrency(instEach)} ج.م{instLast !== instEach && ` (الأخير ${formatCurrency(instLast)})`} شهرياً
+                </p>
+                {fieldErrors.installment && <p className="text-xs text-destructive">{fieldErrors.installment}</p>}
+              </>
+            )}
+          </div>
         )}
 
         <FormTextarea label="ملاحظات" value={form.notes} onChange={(v) => setForm({ ...form, notes: v })} placeholder="ملاحظات الفاتورة" maxLength={MAX_NOTES} error={fieldErrors.notes} />

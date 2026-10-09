@@ -23,6 +23,7 @@ import SettingsPage from '@/pages/SettingsPage';
 import ReportsPage from '@/pages/ReportsPage';
 import SuppliersPage from '@/pages/SuppliersPage';
 import ExpensesPage from '@/pages/ExpensesPage';
+import InstallmentsPage from '@/pages/InstallmentsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -69,6 +70,7 @@ export default function App() {
                 }
               />
               <Route path="customers" element={<CustomersPage />} />
+              <Route path="installments" element={<InstallmentsPage />} />
               <Route path="receipts" element={<ReceiptsPage />} />
               <Route path="cash-closings" element={<CashClosingsPage />} />
               {/* Single-branch mode: there is no branches page (the old one

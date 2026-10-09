@@ -333,6 +333,8 @@ export interface SalesInvoiceCreateInput {
   notes?: string;
   /** Cash part of `paid`; required for MIXED. */
   cashAmount?: number;
+  /** Sell on installments (ADMIN): what is not paid now becomes a monthly plan. */
+  installment?: { months: number; markupPercent: number; firstDueDate?: string };
 }
 
 export interface User {
@@ -550,7 +552,7 @@ export interface CustomerPayment {
 }
 
 export interface CustomerStatementEntry {
-  type: 'INVOICE' | 'PAYMENT' | 'RETURN';
+  type: 'INVOICE' | 'PAYMENT' | 'RETURN' | 'INSTALLMENT_MARKUP';
   id: number;
   number: string;
   date: string;
@@ -713,4 +715,43 @@ export interface ExpenseInput {
   amount: number;
   paymentMethod: PaymentMethod;
   expenseDate: string;
+}
+
+// ---------------------------------------------------------------- installments
+
+export type InstallmentStatus = 'PAID' | 'PARTIAL' | 'DUE' | 'OVERDUE';
+
+export interface InstallmentPlan {
+  id: number;
+  invoiceId: number;
+  invoiceNumber: string;
+  customerId: number;
+  customerName: string;
+  customerPhone?: string | null;
+  principal: number;
+  markupPercent: number;
+  markupAmount: number;
+  totalAmount: number;
+  months: number;
+  firstDueDate: string;
+  paid: number;
+  remaining: number;
+  installments: { id: number; seq: number; dueDate: string; amount: number; paidAmount: number; remaining: number; status: InstallmentStatus; daysLate: number }[];
+}
+
+export interface DueInstallment {
+  installmentId: number;
+  planId: number;
+  invoiceId: number;
+  invoiceNumber: string;
+  customerId: number;
+  customerName: string;
+  customerPhone?: string | null;
+  seq: number;
+  months: number;
+  dueDate: string;
+  amount: number;
+  paidAmount: number;
+  remaining: number;
+  daysLate: number;
 }

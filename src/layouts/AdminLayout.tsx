@@ -24,6 +24,7 @@ import {
   BarChart3,
   Truck,
   Wallet,
+  CalendarClock,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLowStockAlerts } from '@/hooks/useLowStockAlerts';
@@ -46,6 +47,8 @@ const navItems = [
   // Price management is ADMIN-only on the backend.
   { to: '/product-prices', label: 'الأسعار', icon: Tags, adminOnly: true, exact: false },
   { to: '/customers', label: 'العملاء', icon: Users, adminOnly: false, exact: false },
+  // Employees collect installments too; plans are created by admins at the sale.
+  { to: '/installments', label: 'الأقساط', icon: CalendarClock, adminOnly: false, exact: false },
   // Sales, purchase (admin) and cash-closing documents in one list.
   { to: '/receipts', label: 'الفواتير والإيصالات', icon: FileText, adminOnly: false, exact: false },
   { to: '/cash-closings', label: 'إغلاق الكاش', icon: Calculator, adminOnly: false, exact: false },

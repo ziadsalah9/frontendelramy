@@ -8,6 +8,7 @@ import { Badge } from '@/components/shared/DataTable';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency, formatDate, getPaymentMethodLabel, variantLabel } from '@/utils/format';
 import { ReturnDialog } from './ReturnDialog';
+import { InstallmentSchedule } from './InstallmentSchedule';
 import { printReceipt } from '@/utils/print';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 
@@ -104,6 +105,8 @@ export function SalesInvoiceDetails({ invoice: initial, actions }: { invoice: Sa
           ))}
         </div>
       )}
+
+      {(invoice.remaining ?? 0) > 0 && <InstallmentSchedule invoiceId={invoice.id} />}
 
       <p className="text-xs text-muted-foreground">التاريخ: {formatDate(invoice.createdAt)}</p>
       {invoice.notes && <div><p className="text-xs text-muted-foreground mb-1">ملاحظات</p><p className="text-sm">{invoice.notes}</p></div>}

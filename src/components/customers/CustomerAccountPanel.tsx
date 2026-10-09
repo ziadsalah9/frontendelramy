@@ -10,7 +10,7 @@ import { useMainBranch } from '@/hooks/useMainBranch';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { sanitizeDecimal, MAX_NOTES } from '@/utils/validation';
 
-const ENTRY_LABEL = { INVOICE: 'فاتورة', PAYMENT: 'تحصيل', RETURN: 'مرتجع' } as const;
+const ENTRY_LABEL = { INVOICE: 'فاتورة', PAYMENT: 'تحصيل', RETURN: 'مرتجع', INSTALLMENT_MARKUP: 'زيادة تقسيط' } as const;
 
 /**
  * What a customer owes, their statement, and recording a payment (تحصيل).
@@ -50,7 +50,7 @@ export function CustomerAccountPanel({ customerId }: { customerId: number }) {
     try {
       const p = await customerAccountsService.pay(customerId, { branchId, amount: n, paymentMethod: method, notes: notes.trim() || undefined });
       toast.success(`تم تسجيل التحصيل ${p.paymentNumber}: ${formatCurrency(p.amount)} ج.م`);
-      ['customer-account', 'customer-payments', 'cash-closings-summary', 'activity-logs'].forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
+      ['customer-account', 'customer-payments', 'cash-closings-summary', 'activity-logs', 'installments-due', 'installment-plan', 'dashboard'].forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
       setPayOpen(false);
     } catch (err) {
       setError(extractApiError(err).message);
