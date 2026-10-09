@@ -28,7 +28,6 @@ export function LabelsDialog({ product, onClose }: { product: Product | null; on
         variantLabel: v.label === 'بدون لون أو مقاس' ? null : v.label,
         code: v.code,
         barcode: v.barcode,
-        price: product.currentPrice?.sellingPrice ?? null,
         copies: Number(copies[v.id]) || 0,
       })),
       settings.data,
@@ -38,7 +37,7 @@ export function LabelsDialog({ product, onClose }: { product: Product | null; on
   return (
     <Modal open={!!product} onClose={onClose} title={`طباعة باركود: ${product.name}`}>
       <div className="space-y-4">
-        <p className="text-xs text-muted-foreground">ملصق 40×25 مم لكل قطعة: اسم المحل، المنتج، اللون/المقاس، السعر والباركود. العدد الافتراضي = الكمية الحالية.</p>
+        <p className="text-xs text-muted-foreground">ملصق 40×25 مم لكل قطعة: اسم المحل، المنتج، اللون/المقاس والباركود (بدون سعر). العدد الافتراضي = الكمية الحالية.</p>
         <div className="rounded-lg border divide-y">
           {variants.map((v) => (
             <div key={v.id} className="flex items-center justify-between gap-3 p-3">
@@ -57,7 +56,6 @@ export function LabelsDialog({ product, onClose }: { product: Product | null; on
             </div>
           ))}
         </div>
-        {!product.currentPrice && <p className="text-xs text-warning">المنتج بدون سعر، سيُطبع الملصق بدون سعر.</p>}
         <div className="flex items-center justify-between pt-2 border-t">
           <span className="text-sm text-muted-foreground">{total} ملصق</span>
           <button type="button" onClick={print} disabled={total === 0} className="flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50">

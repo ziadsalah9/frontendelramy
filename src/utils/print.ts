@@ -113,16 +113,15 @@ export interface LabelItem {
   variantLabel?: string | null;
   code: string;
   barcode?: string | null;
-  price?: number | null;
   copies: number;
 }
 
-/** Barcode stickers, one 40x25mm label per piece. */
+/** Barcode stickers, one 40x25mm label per piece (no price, so a price change needs no new labels). */
 export function printLabels(items: LabelItem[], store?: StoreSettings | null) {
   const labels = items
     .flatMap((it) => Array.from({ length: Math.max(0, it.copies) }, () => it))
     .map((it) => `<div class="label">
-        <div class="top"><span class="store">${esc(store?.storeName ?? '')}</span>${it.price != null ? `<span class="price">${formatCurrency(it.price)} ج.م</span>` : ''}</div>
+        <div class="top"><span class="store">${esc(store?.storeName ?? '')}</span></div>
         <div class="name">${esc(it.productName)}${it.variantLabel ? ` - ${esc(it.variantLabel)}` : ''}</div>
         ${barcodeSvg(it.barcode || it.code, { height: 26, width: 1.2, fontSize: 9 })}
       </div>`)
@@ -133,7 +132,6 @@ export function printLabels(items: LabelItem[], store?: StoreSettings | null) {
     ${BASE_CSS}
     .label { width: 40mm; height: 25mm; padding: 1.2mm 1.5mm; overflow: hidden; page-break-after: always; break-after: page; }
     .top { display: flex; justify-content: space-between; font-size: 7px; }
-    .price { font-weight: bold; font-size: 9px; }
     .name { font-size: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin: 0.5mm 0; }
     svg { height: 14mm; }
   </style></head><body>${labels}</body></html>`);
