@@ -13,6 +13,7 @@ import {
   Receipt,
   UserCog,
   LogOut,
+  KeyRound,
   Menu,
   X,
   Sofa,
@@ -29,6 +30,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useLowStockAlerts } from '@/hooks/useLowStockAlerts';
 import { Modal } from '@/components/shared/Modal';
+import { ChangePasswordDialog } from '@/components/shared/ChangePasswordDialog';
 import { Badge } from '@/components/shared/DataTable';
 import { getRoleLabel } from '@/utils/format';
 
@@ -73,6 +75,7 @@ export default function AdminLayout() {
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [lowStockOpen, setLowStockOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
 
   // Mounted here so the warning follows the user across every page. The
   // toast action and the header button both open the same list.
@@ -157,6 +160,13 @@ export default function AdminLayout() {
             </div>
           </div>
           <button
+            onClick={() => { setPasswordOpen(true); setSidebarOpen(false); }}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-white/10 hover:text-white transition-all"
+          >
+            <KeyRound className="w-[18px] h-[18px]" />
+            <span>تغيير كلمة المرور</span>
+          </button>
+          <button
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-destructive/20 hover:text-red-300 transition-all"
           >
@@ -222,6 +232,8 @@ export default function AdminLayout() {
           </div>
         </main>
       </div>
+
+      <ChangePasswordDialog open={passwordOpen} onClose={() => setPasswordOpen(false)} />
 
       {/* Low stock list, opened from the header button or the warning toast */}
       <Modal
