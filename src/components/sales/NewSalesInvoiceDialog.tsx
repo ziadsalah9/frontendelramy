@@ -249,7 +249,8 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
   // Installment preview, same rounding as the server (InstallmentService).
   const inst = form.installment;
   const instMonths = Math.max(1, Math.min(60, Number(inst.months) || 0));
-  const instMarkup = round2((remaining * (Number(inst.markupPercent) || 0)) / 100);
+  // The markup % is on the whole invoice total (down payment included).
+  const instMarkup = round2((total * (Number(inst.markupPercent) || 0)) / 100);
   const instTotal = round2(remaining + instMarkup);
   const instEach = Math.floor((instTotal / instMonths) * 100) / 100;
   const instLast = round2(instTotal - instEach * (instMonths - 1));
@@ -550,12 +551,12 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
               <>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <FormInput label="عدد الشهور" type="text" inputMode="numeric" value={inst.months} onChange={(v) => setForm({ ...form, installment: { ...inst, months: sanitizeInt(v).slice(0, 2) } })} dir="ltr" required />
-                  <FormInput label="نسبة الزيادة %" type="text" inputMode="decimal" value={inst.markupPercent} onChange={(v) => setForm({ ...form, installment: { ...inst, markupPercent: sanitizeDecimal(v).slice(0, 6) } })} dir="ltr" required />
+                  <FormInput label="نسبة الزيادة % (من إجمالي الفاتورة)" type="text" inputMode="decimal" value={inst.markupPercent} onChange={(v) => setForm({ ...form, installment: { ...inst, markupPercent: sanitizeDecimal(v).slice(0, 6) } })} dir="ltr" required />
                   <FormInput label="أول قسط" type="date" value={inst.firstDueDate} min={todayLocalISO()} onChange={(v) => setForm({ ...form, installment: { ...inst, firstDueDate: v } })} required />
                 </div>
                 <p className="text-sm">
                   المقدم (المدفوع الآن): <strong>{formatCurrency(paid)}</strong> · المتبقي: <strong>{formatCurrency(remaining)}</strong>
-                  {instMarkup > 0 && <> · الزيادة: <strong>{formatCurrency(instMarkup)}</strong></>}
+                  {instMarkup > 0 && <> · الزيادة ({inst.markupPercent}% من إجمالي الفاتورة {formatCurrency(total)}): <strong>{formatCurrency(instMarkup)}</strong></>}
                   {' '}· إجمالي الأقساط: <strong>{formatCurrency(instTotal)}</strong>
                 </p>
                 <p className="text-sm text-primary font-medium">
