@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Undo2, Printer } from 'lucide-react';
+import { Undo2, Printer, Repeat } from 'lucide-react';
 import { salesReturnsService } from '@/api/salesReturns';
 import { salesInvoicesService } from '@/api/salesInvoices';
 import type { SalesInvoice } from '@/types';
@@ -8,6 +8,8 @@ import { Badge } from '@/components/shared/DataTable';
 import { useAuth } from '@/hooks/useAuth';
 import { formatCurrency, formatDate, getPaymentMethodLabel, variantLabel } from '@/utils/format';
 import { ReturnDialog } from './ReturnDialog';
+import { ExchangeDialog } from './ExchangeDialog';
+import { toast } from 'sonner';
 import { InstallmentSchedule } from './InstallmentSchedule';
 import { printReceipt } from '@/utils/print';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
@@ -22,6 +24,7 @@ export function SalesInvoiceDetails({ invoice: initial, actions }: { invoice: Sa
   const settings = useStoreSettings();
   const [invoice, setInvoice] = useState(initial);
   const [returnOpen, setReturnOpen] = useState(false);
+  const [exchangeOpen, setExchangeOpen] = useState(false);
   if (initial.id !== invoice.id) setInvoice(initial);
 
   const returns = useQuery({
@@ -98,6 +101,7 @@ export function SalesInvoiceDetails({ invoice: initial, actions }: { invoice: Sa
                 {r.items.map((it) => `${it.productName}${it.variantLabel ? ` (${it.variantLabel})` : ''} × ${it.quantity}`).join('، ')}
               </p>
               <p className="text-xs">
+                {r.exchangeInvoiceNumber && <span className="font-medium">استبدال مقابل <span dir="ltr">{r.exchangeInvoiceNumber}</span> · </span>}
                 القيمة {formatCurrency(r.total)} ج.م · نقداً {formatCurrency(r.cashRefund)} · من المستحق {formatCurrency(r.creditAmount)}
                 {r.reason && ` · ${r.reason}`}
               </p>
@@ -117,6 +121,11 @@ export function SalesInvoiceDetails({ invoice: initial, actions }: { invoice: Sa
           <button type="button" onClick={() => printReceipt(invoice, settings.data)} className="flex items-center gap-2 h-10 px-4 rounded-lg border text-sm font-medium hover:bg-accent">
             <Printer className="w-4 h-4" /> طباعة الإيصال
           </button>
+          {isAdmin && returnable && invoice.customer && (
+            <button type="button" onClick={() => setExchangeOpen(true)} className="flex items-center gap-2 h-10 px-4 rounded-lg border border-primary/40 text-primary text-sm font-medium hover:bg-primary/10">
+              <Repeat className="w-4 h-4" /> استبدال
+            </button>
+          )}
           {isAdmin && returnable && (
             <button type="button" onClick={() => setReturnOpen(true)} className="flex items-center gap-2 h-10 px-4 rounded-lg border border-warning/50 text-warning text-sm font-medium hover:bg-warning/10">
               <Undo2 className="w-4 h-4" /> إرجاع أصناف
@@ -126,6 +135,14 @@ export function SalesInvoiceDetails({ invoice: initial, actions }: { invoice: Sa
       )}
 
       {isAdmin && <ReturnDialog invoice={invoice} open={returnOpen} onClose={() => setReturnOpen(false)} onDone={afterReturn} />}
+      {isAdmin && invoice.customer && (
+        <ExchangeDialog
+          invoice={invoice}
+          open={exchangeOpen}
+          onClose={() => setExchangeOpen(false)}
+          onDone={async (num) => { setExchangeOpen(false); toast.info(`الفاتورة الجديدة ${num} في قائمة فواتير البيع`); await afterReturn(); }}
+        />
+      )}
     </div>
   );
 }

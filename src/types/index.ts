@@ -593,6 +593,9 @@ export interface SalesReturn {
   createdByName?: string | null;
   createdAt: string;
   items: { invoiceItemId: number; productId: number; productName: string; variantLabel?: string | null; quantity: number; unitRefund: number; total: number }[];
+  /** Set when the return is part of an exchange. */
+  exchangeInvoiceId?: number | null;
+  exchangeInvoiceNumber?: string | null;
 }
 
 // ---------------------------------------------------------------- reports (ADMIN-only)
