@@ -1,7 +1,10 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import type { ApiError } from '@/types';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
+// Development: the backend on :8090. The production build sets VITE_API_URL
+// to "" (.env.production): the backend serves the app, so API calls go to
+// the same address the page came from.
+export const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8090';
 const TOKEN_KEY = 'mafroshat_token';
 const USER_KEY = 'mafroshat_user';
 
