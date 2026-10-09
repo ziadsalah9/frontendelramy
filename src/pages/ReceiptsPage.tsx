@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Eye, Receipt, ShoppingCart, Calculator, AlertTriangle } from 'lucide-react';
+import { Eye, Receipt, ShoppingCart, Calculator, AlertTriangle, Undo2, Wallet } from 'lucide-react';
 import { salesInvoicesService } from '@/api/salesInvoices';
 import { purchaseInvoicesService } from '@/api/purchaseInvoices';
 import { cashClosingsService, type CashClosingResponse } from '@/api/cashClosings';
 import { extractApiError } from '@/api/client';
-import type { PurchaseInvoice, SalesInvoice, PaymentMethod } from '@/types';
+import type { PurchaseInvoice, SalesInvoice, PaymentMethod, SalesReturn, CustomerPayment } from '@/types';
+import { salesReturnsService } from '@/api/salesReturns';
+import { customerAccountsService } from '@/api/customerAccounts';
+import { SalesInvoiceDetails } from '@/components/sales/SalesInvoiceDetails';
+import { round2 } from '@/utils/pricing';
 import { PageHeader } from '@/components/shared/States';
 import { DataTable, SearchInput, ActionButton, Badge, type Column } from '@/components/shared/DataTable';
 import { Modal } from '@/components/shared/Modal';
@@ -14,7 +18,7 @@ import { matches } from '@/utils/validation';
 import { useAuth } from '@/hooks/useAuth';
 import { ClosedBranchBadge } from '@/components/shared/ClosedBranchBadge';
 
-type Kind = 'SALE' | 'PURCHASE' | 'CASH_CLOSING';
+type Kind = 'SALE' | 'RETURN' | 'PAYMENT' | 'PURCHASE' | 'CASH_CLOSING';
 
 /** One row of the unified list, whatever document it came from. */
 interface ReceiptRow {
@@ -34,11 +38,13 @@ interface ReceiptRow {
   /** Remaining balance for invoices, counted - expected for cash closings. */
   balance: number;
   paymentMethod?: PaymentMethod;
-  source: SalesInvoice | PurchaseInvoice | CashClosingResponse;
+  source: SalesInvoice | PurchaseInvoice | CashClosingResponse | SalesReturn | CustomerPayment;
 }
 
-const KIND_META: Record<Kind, { label: string; variant: 'info' | 'warning' | 'success'; icon: typeof Receipt }> = {
+const KIND_META: Record<Kind, { label: string; variant: 'info' | 'warning' | 'success' | 'destructive' | 'default'; icon: typeof Receipt }> = {
   SALE: { label: 'فاتورة بيع', variant: 'info', icon: Receipt },
+  RETURN: { label: 'مرتجع', variant: 'destructive', icon: Undo2 },
+  PAYMENT: { label: 'تحصيل', variant: 'default', icon: Wallet },
   PURCHASE: { label: 'فاتورة شراء', variant: 'warning', icon: ShoppingCart },
   CASH_CLOSING: { label: 'إغلاق كاش', variant: 'success', icon: Calculator },
 };
@@ -77,6 +83,8 @@ export default function ReceiptsPage() {
   // Purchase invoices are ADMIN-only end to end.
   const purchases = useQuery({ queryKey: ['purchase-invoices'], queryFn: purchaseInvoicesService.getAll, enabled: isAdmin });
   // GET /api/cash-closings is ADMIN-only; employees read their own branch.
+  const returnsQ = useQuery({ queryKey: ['sales-returns'], queryFn: salesReturnsService.getAll });
+  const paymentsQ = useQuery({ queryKey: ['customer-payments'], queryFn: customerAccountsService.getAllPayments });
   const closings = useQuery({
     queryKey: ['cash-closings', isAdmin ? 'all' : ownBranchId],
     queryFn: () => (isAdmin ? cashClosingsService.getAll() : cashClosingsService.getByBranch(ownBranchId!)),
@@ -122,6 +130,40 @@ export default function ReceiptsPage() {
         source: inv,
       });
     }
+    for (const r of returnsQ.data ?? []) {
+      out.push({
+        id: `RETURN-${r.id}`,
+        kind: 'RETURN',
+        number: r.returnNumber,
+        timestamp: new Date(r.createdAt).getTime(),
+        day: localDay(r.createdAt),
+        dateLabel: formatDate(r.createdAt),
+        branchId: r.branchId ?? 0,
+        branchName: branchName(r.branchId ?? 0),
+        party: r.customerName ?? '-',
+        total: r.total,
+        balance: r.cashRefund,
+        source: r,
+      });
+    }
+    for (const p of paymentsQ.data ?? []) {
+      out.push({
+        id: `PAYMENT-${p.id}`,
+        kind: 'PAYMENT',
+        number: p.paymentNumber,
+        timestamp: new Date(p.createdAt).getTime(),
+        day: localDay(p.createdAt),
+        dateLabel: formatDate(p.createdAt),
+        branchId: p.branchId ?? 0,
+        branchName: branchName(p.branchId ?? 0, p.branchName ?? undefined),
+        party: p.customerName,
+        total: p.amount,
+        paid: p.amount,
+        balance: 0,
+        paymentMethod: p.paymentMethod,
+        source: p,
+      });
+    }
     for (const c of closings.data ?? []) {
       out.push({
         id: `CASH-${c.id}`,
@@ -140,7 +182,7 @@ export default function ReceiptsPage() {
       });
     }
     return out.sort((a, b) => b.timestamp - a.timestamp);
-  }, [sales.data, purchases.data, closings.data, isAdmin]);
+  }, [sales.data, purchases.data, closings.data, returnsQ.data, paymentsQ.data, isAdmin]);
 
   // Everything except the type filter, so the type tabs can show counts.
   const baseFiltered = rows.filter(
@@ -154,22 +196,26 @@ export default function ReceiptsPage() {
 
   const countOf = (k: Kind) => baseFiltered.filter((r) => r.kind === k).length;
   const sum = (k: Kind, f: (r: ReceiptRow) => number) => baseFiltered.filter((r) => r.kind === k).reduce((s, r) => s + f(r), 0);
-  const salesTotal = sum('SALE', (r) => r.total);
+  const returnsTotal = sum('RETURN', (r) => r.total);
+  const salesTotal = round2(sum('SALE', (r) => r.total) - returnsTotal);
+  const paymentsTotal = sum('PAYMENT', (r) => r.total);
   const salesDue = sum('SALE', (r) => r.balance);
   const purchasesTotal = sum('PURCHASE', (r) => r.total);
   const closingsDiff = sum('CASH_CLOSING', (r) => r.balance);
 
-  const loading = sales.isLoading || (isAdmin && purchases.isLoading) || closings.isLoading;
+  const loading = sales.isLoading || (isAdmin && purchases.isLoading) || closings.isLoading || returnsQ.isLoading || paymentsQ.isLoading;
   const failed = [
     sales.error && 'فواتير البيع',
     isAdmin && purchases.error && 'فواتير الشراء',
     closings.error && 'إغلاقات الكاش',
+    returnsQ.error && 'المرتجعات',
+    paymentsQ.error && 'التحصيلات',
   ].filter(Boolean) as string[];
   const allFailed = failed.length > 0 && rows.length === 0;
 
   const resetPaging = () => setLimit(PAGE_SIZE);
 
-  const kinds: Kind[] = isAdmin ? ['SALE', 'PURCHASE', 'CASH_CLOSING'] : ['SALE', 'CASH_CLOSING'];
+  const kinds: Kind[] = isAdmin ? ['SALE', 'RETURN', 'PAYMENT', 'PURCHASE', 'CASH_CLOSING'] : ['SALE', 'RETURN', 'PAYMENT', 'CASH_CLOSING'];
 
   const columns: Column<ReceiptRow>[] = [
     { key: 'kind', header: 'النوع', render: (r) => <Badge variant={KIND_META[r.kind].variant}>{KIND_META[r.kind].label}</Badge> },
@@ -185,10 +231,17 @@ export default function ReceiptsPage() {
     },
     { key: 'date', header: 'التاريخ', render: (r) => <span className="text-xs text-muted-foreground whitespace-nowrap">{r.dateLabel}</span> },
     { key: 'party', header: 'العميل / المسؤول', render: (r) => r.party },
-    { key: 'total', header: 'الإجمالي', render: (r) => <span className="font-bold whitespace-nowrap">{formatCurrency(r.total)} ج.م</span> },
+    {
+      key: 'total', header: 'الإجمالي',
+      render: (r) => <span className={`font-bold whitespace-nowrap ${r.kind === 'RETURN' ? 'text-destructive' : r.kind === 'PAYMENT' ? 'text-success' : ''}`}>{r.kind === 'RETURN' ? '-' : ''}{formatCurrency(r.total)} ج.م</span>,
+    },
     {
       key: 'balance', header: 'المتبقي / الفرق',
-      render: (r) => r.kind === 'CASH_CLOSING'
+      render: (r) => r.kind === 'RETURN'
+        ? <span className="whitespace-nowrap text-xs text-muted-foreground">نقداً {formatCurrency(r.balance)} ج.م</span>
+        : r.kind === 'PAYMENT'
+        ? <span className="text-muted-foreground">-</span>
+        : r.kind === 'CASH_CLOSING'
         ? <span className={`whitespace-nowrap font-medium ${r.balance === 0 ? 'text-success' : r.balance > 0 ? 'text-warning' : 'text-destructive'}`}>{r.balance > 0 ? '+' : ''}{formatCurrency(r.balance)} ج.م</span>
         : <span className={`whitespace-nowrap ${r.balance > 0 ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>{formatCurrency(r.balance)} ج.م</span>,
     },
@@ -203,7 +256,7 @@ export default function ReceiptsPage() {
       <PageHeader title="الفواتير والإيصالات" description="كل فواتير البيع والشراء وإغلاقات الكاش في مكان واحد" />
 
       <div className={`grid grid-cols-2 gap-3 mb-4 ${isAdmin ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
-        <div className="p-4 rounded-xl border bg-card"><p className="text-xs text-muted-foreground mb-1">إجمالي المبيعات</p><p className="text-xl font-bold">{formatCurrency(salesTotal)} ج.م</p><p className="text-xs text-muted-foreground">{countOf('SALE')} فاتورة</p></div>
+        <div className="p-4 rounded-xl border bg-card"><p className="text-xs text-muted-foreground mb-1">صافي المبيعات</p><p className="text-xl font-bold">{formatCurrency(salesTotal)} ج.م</p><p className="text-xs text-muted-foreground">{countOf('SALE')} فاتورة{returnsTotal > 0 && ` · مرتجعات ${formatCurrency(returnsTotal)}`}{paymentsTotal > 0 && ` · تحصيلات ${formatCurrency(paymentsTotal)}`}</p></div>
         <div className="p-4 rounded-xl border bg-card"><p className="text-xs text-muted-foreground mb-1">مستحقات على العملاء</p><p className={`text-xl font-bold ${salesDue > 0 ? 'text-destructive' : ''}`}>{formatCurrency(salesDue)} ج.م</p></div>
         {isAdmin && <div className="p-4 rounded-xl border bg-card"><p className="text-xs text-muted-foreground mb-1">إجمالي المشتريات</p><p className="text-xl font-bold">{formatCurrency(purchasesTotal)} ج.م</p><p className="text-xs text-muted-foreground">{countOf('PURCHASE')} فاتورة</p></div>}
         <div className="p-4 rounded-xl border bg-card"><p className="text-xs text-muted-foreground mb-1">صافي فروق الكاش</p><p className={`text-xl font-bold ${closingsDiff === 0 ? 'text-success' : closingsDiff > 0 ? 'text-warning' : 'text-destructive'}`}>{closingsDiff > 0 ? '+' : ''}{formatCurrency(closingsDiff)} ج.م</p><p className="text-xs text-muted-foreground">{countOf('CASH_CLOSING')} إغلاق</p></div>
@@ -264,6 +317,12 @@ export default function ReceiptsPage() {
       >
         {viewing && (viewing.kind === 'CASH_CLOSING'
           ? <CashClosingDetails closing={viewing.source as CashClosingResponse} />
+          : viewing.kind === 'SALE'
+          ? <SalesInvoiceDetails invoice={viewing.source as SalesInvoice} />
+          : viewing.kind === 'RETURN'
+          ? <ReturnDetails ret={viewing.source as SalesReturn} />
+          : viewing.kind === 'PAYMENT'
+          ? <PaymentDetails payment={viewing.source as CustomerPayment} />
           : <InvoiceDetails row={viewing} />)}
       </Modal>
     </div>
@@ -350,6 +409,46 @@ function CashClosingDetails({ closing }: { closing: CashClosingResponse }) {
       </div>
       {closing.createdAt && <p className="text-xs text-muted-foreground">تم الحفظ: {formatDate(closing.createdAt)}</p>}
       {closing.notes && <div><p className="text-xs text-muted-foreground mb-1">ملاحظات</p><p className="text-sm">{closing.notes}</p></div>}
+    </div>
+  );
+}
+
+function ReturnDetails({ ret }: { ret: SalesReturn }) {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">العميل</p><p className="text-sm font-medium">{ret.customerName ?? '-'}</p>{ret.customerPhone && <p className="text-xs text-muted-foreground" dir="ltr">{ret.customerPhone}</p>}</div>
+        <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">من الفاتورة</p><p className="text-sm font-mono" dir="ltr">{ret.invoiceNumber}</p></div>
+        <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">بواسطة</p><p className="text-sm font-medium">{ret.createdByName ?? '-'}</p></div>
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">القيمة</p><p className="font-bold text-destructive">{formatCurrency(ret.total)} ج.م</p></div>
+        <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">رُد نقداً</p><p className="font-bold">{formatCurrency(ret.cashRefund)} ج.م</p></div>
+        <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">خُصم من المستحق</p><p className="font-bold">{formatCurrency(ret.creditAmount)} ج.م</p></div>
+      </div>
+      <div className="space-y-2">
+        {ret.items.map((it) => (
+          <div key={it.invoiceItemId} className="flex items-center justify-between p-3 rounded-lg border text-sm">
+            <span>{it.productName}{it.variantLabel && <span className="mr-2 text-xs text-muted-foreground">({it.variantLabel})</span>} × {it.quantity}</span>
+            <span className="font-bold">{formatCurrency(it.total)} ج.م</span>
+          </div>
+        ))}
+      </div>
+      {ret.reason && <p className="text-sm"><span className="text-muted-foreground">السبب: </span>{ret.reason}</p>}
+      <p className="text-xs text-muted-foreground">التاريخ: {formatDate(ret.createdAt)}</p>
+    </div>
+  );
+}
+
+function PaymentDetails({ payment }: { payment: CustomerPayment }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">العميل</p><p className="text-sm font-medium">{payment.customerName}</p>{payment.customerPhone && <p className="text-xs text-muted-foreground" dir="ltr">{payment.customerPhone}</p>}</div>
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">المبلغ</p><p className="text-lg font-bold text-success">{formatCurrency(payment.amount)} ج.م</p></div>
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">طريقة الدفع</p><Badge variant="info">{getPaymentMethodLabel(payment.paymentMethod)}</Badge></div>
+      <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">استلمه</p><p className="text-sm font-medium">{payment.receivedByName ?? '-'}</p></div>
+      {payment.notes && <p className="col-span-2 text-sm"><span className="text-muted-foreground">ملاحظات: </span>{payment.notes}</p>}
+      <p className="col-span-2 text-xs text-muted-foreground">التاريخ: {formatDate(payment.createdAt)}</p>
     </div>
   );
 }

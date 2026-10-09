@@ -20,6 +20,7 @@ import {
   Calculator,
   History,
   ClipboardCheck,
+  Settings,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { useLowStockAlerts } from '@/hooks/useLowStockAlerts';
@@ -52,6 +53,8 @@ const navItems = [
   { to: '/users', label: 'المستخدمون', icon: UserCog, adminOnly: true, exact: false },
   // Who changed what; /api/activity-logs is ADMIN-only.
   { to: '/activity-log', label: 'سجل النشاط', icon: History, adminOnly: true, exact: false },
+  // Store details and the employee discount limit; PUT /api/settings is ADMIN-only.
+  { to: '/settings', label: 'الإعدادات', icon: Settings, adminOnly: true, exact: false },
 ];
 
 export default function AdminLayout() {

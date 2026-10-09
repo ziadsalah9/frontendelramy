@@ -10,13 +10,16 @@ import { PAYMENT_METHODS } from '@/types';
 import { PageHeader } from '@/components/shared/States';
 import { DataTable, SearchInput, ActionButton, Badge, type Column } from '@/components/shared/DataTable';
 import { Modal, FormInput, FormSelect, FormTextarea, FormError, SubmitButton } from '@/components/shared/Modal';
-import { formatDate, formatCurrency, getPaymentMethodLabel, variantLabel } from '@/utils/format';
+import { formatDate, formatCurrency, getPaymentMethodLabel } from '@/utils/format';
 import {
   sanitizeDecimal, sanitizeInt, isValidPhone, matches,
   MAX_NAME, MAX_ADDRESS, MAX_NOTES,
 } from '@/utils/validation';
 import { useMainBranch } from '@/hooks/useMainBranch';
 import { CustomerPicker, type CustomerMode } from '@/components/sales/CustomerPicker';
+import { SalesInvoiceDetails } from '@/components/sales/SalesInvoiceDetails';
+import { useAuth } from '@/hooks/useAuth';
+import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { toast } from 'sonner';
 
 interface FormItem {
@@ -45,11 +48,13 @@ interface FormState {
   /** Only used once the cashier edits it; until then paid follows the total. */
   paid: string;
   paidTouched: boolean;
+  /** Cash part of a MIXED payment (for the cash closing). */
+  cashAmount: string;
   notes: string;
   items: FormItem[];
 }
 
-type FieldErrors = Partial<Record<'branchId' | 'customer' | 'customerName' | 'customerPhone' | 'customerAddress' | 'discount' | 'paid' | 'notes' | 'items', string>>;
+type FieldErrors = Partial<Record<'branchId' | 'customer' | 'customerName' | 'customerPhone' | 'customerAddress' | 'discount' | 'paid' | 'cashAmount' | 'notes' | 'items', string>>;
 
 let nextKey = 0;
 const emptyItem = (): FormItem => ({ key: ++nextKey, productId: '', variantId: '', quantity: '1', discount: '0', discountPercent: '0', discountMode: 'percent' });
@@ -57,6 +62,8 @@ const emptyItem = (): FormItem => ({ key: ++nextKey, productId: '', variantId: '
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
 export default function SalesInvoicesPage() {
+  const { isAdmin } = useAuth();
+  const settings = useStoreSettings();
   const queryClient = useQueryClient();
   // Single-branch mode: every sale is for the shop's one branch.
   const { branchId: mainBranchId, isLoading: branchLoading } = useMainBranch();
@@ -70,6 +77,7 @@ export default function SalesInvoicesPage() {
     paymentMethod: 'CASH',
     discount: '0',
     paid: '',
+    cashAmount: '',
     paidTouched: false,
     notes: '',
     items: [emptyItem()],
@@ -237,6 +245,12 @@ export default function SalesInvoicesPage() {
   const paidValue = form.paidTouched ? form.paid : total.toString();
   const paid = Number(paidValue) || 0;
   const remaining = round2(total - paid);
+  // Employee discount limit (store settings), on line + invoice discounts
+  // together, as a share of the invoice before discounts - like the server.
+  const gross = round2(form.items.reduce((sum, item) => sum + (item.productId ? price(item.productId) * (Number(item.quantity) || 0) : 0), 0));
+  const maxDiscountPercent = settings.data?.employeeMaxDiscountPercent ?? 10;
+  const allowedDiscount = round2((gross * maxDiscountPercent) / 100);
+  const discountOverLimit = !isAdmin && round2(gross - total) > allowedDiscount;
 
   // Mirrors the backend rules in SalesInvoiceServiceImpl so the cashier
   // gets a specific Arabic message instead of a server error.
@@ -287,6 +301,13 @@ export default function SalesInvoicesPage() {
     else if (invoiceDiscount > subtotal) fields.discount = 'خصم الفاتورة أكبر من إجمالي البنود';
     if (paidValue.trim() === '') fields.paid = 'أدخل المبلغ المدفوع';
     else if (paid > total) fields.paid = 'المدفوع لا يمكن أن يزيد عن إجمالي الفاتورة';
+    if (!fields.discount && discountOverLimit) {
+      fields.discount = `الخصم المسموح للموظف حتى ${maxDiscountPercent}% (${formatCurrency(allowedDiscount)} ج.م). اطلب من المدير.`;
+    }
+    if (form.paymentMethod === 'MIXED') {
+      if (form.cashAmount.trim() === '') fields.cashAmount = 'اكتب الجزء المدفوع نقداً';
+      else if (Number(form.cashAmount) > paid) fields.cashAmount = 'الجزء النقدي أكبر من المدفوع';
+    }
 
     return { fields, items };
   };
@@ -324,6 +345,7 @@ export default function SalesInvoicesPage() {
           .map((i) => ({ variantId: Number(i.variantId), quantity: Number(i.quantity), discount: Number(i.discount) || 0 })),
         discount: invoiceDiscount,
         paid,
+        cashAmount: form.paymentMethod === 'MIXED' ? Number(form.cashAmount) : undefined,
         notes: form.notes.trim() || undefined,
       });
       toast.success(`تم إنشاء فاتورة البيع ${created.invoiceNumber ?? ''} بنجاح`);
@@ -496,6 +518,19 @@ export default function SalesInvoicesPage() {
             </div>
           </div>
 
+          {(form.paymentMethod === 'MIXED' || !isAdmin) && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {form.paymentMethod === 'MIXED' && (
+                <FormInput label="منه نقداً (ج.م)" type="text" inputMode="decimal" value={form.cashAmount} onChange={(v) => setForm({ ...form, cashAmount: sanitizeDecimal(v) })} required dir="ltr" placeholder="الجزء المدفوع كاش" error={fieldErrors.cashAmount} />
+              )}
+              {!isAdmin && (
+                <p className={`self-end text-xs ${discountOverLimit ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  الحد الأقصى لخصم الموظف {maxDiscountPercent}% من الفاتورة ({formatCurrency(allowedDiscount)} ج.م). الخصم الحالي: {formatCurrency(round2(gross - total))} ج.م
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
             <div className="text-sm text-muted-foreground">
               إجمالي البنود: <span className="font-medium text-foreground">{formatCurrency(subtotal)} ج.م</span>
@@ -519,40 +554,7 @@ export default function SalesInvoicesPage() {
       </Modal>
 
       <Modal open={!!viewing} onClose={() => setViewing(null)} title={`فاتورة بيع - ${viewing?.invoiceNumber ?? ''}`} maxWidth="max-w-2xl">
-        {viewing && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">العميل</p><p className="text-sm font-medium">{viewing.customer?.name ?? '-'}</p>{viewing.customer?.phone && <p className="text-xs text-muted-foreground" dir="ltr">{viewing.customer.phone}</p>}</div>
-              <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">الكاشير</p><p className="text-sm font-medium">{viewing.cashierName ?? '-'}</p></div>
-              <div className="p-3 rounded-lg bg-muted/50"><p className="text-xs text-muted-foreground mb-1">طريقة الدفع</p><Badge variant="info">{getPaymentMethodLabel(viewing.paymentMethod)}</Badge></div>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">خصم الفاتورة</p><p className="font-bold">{formatCurrency(viewing.discount)} ج.م</p></div>
-              <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">الإجمالي</p><p className="font-bold">{formatCurrency(viewing.total)} ج.م</p></div>
-              <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">المدفوع</p><p className="text-success font-bold">{formatCurrency(viewing.paid)} ج.م</p></div>
-              <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">المتبقي</p><p className={viewing.remaining && viewing.remaining > 0 ? 'text-destructive font-bold' : 'font-bold'}>{formatCurrency(viewing.remaining)} ج.م</p></div>
-            </div>
-            <div>
-              <h4 className="font-semibold text-foreground mb-3">المنتجات</h4>
-              <div className="space-y-2">
-                {viewing.items?.map((item, i) => (
-                  <div key={item.id ?? i} className="flex items-center justify-between p-3 rounded-lg border">
-                    <div>
-                      <p className="text-sm font-medium">{item.productName ?? products?.find((p) => p.id === item.productId)?.name ?? `#${item.productId}`}{variantLabel(item) && <span className="mr-2 px-1.5 py-0.5 rounded bg-muted text-xs font-normal">{variantLabel(item)}</span>}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {item.quantity} × {formatCurrency(item.unitPrice)} ج.م
-                        {item.discount > 0 && ` - خصم ${formatCurrency(item.discount)} ج.م`}
-                      </p>
-                    </div>
-                    <span className="text-sm font-bold">{formatCurrency(item.total)} ج.م</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <p className="text-xs text-muted-foreground">التاريخ: {formatDate(viewing.createdAt)}</p>
-            {viewing.notes && <div><p className="text-xs text-muted-foreground mb-1">ملاحظات</p><p className="text-sm">{viewing.notes}</p></div>}
-          </div>
-        )}
+        {viewing && <SalesInvoiceDetails invoice={viewing} />}
       </Modal>
     </div>
   );

@@ -273,6 +273,8 @@ export interface InvoiceItem {
   variantCode?: string | null;
   color?: string | null;
   size?: string | null;
+  /** Pieces already returned (sales only). */
+  returnedQuantity?: number;
 }
 
 export interface PurchaseInvoice {
@@ -317,6 +319,10 @@ export interface SalesInvoice {
   remaining?: number;
   createdAt: string;
   branchName?: string;
+  /** Cash part of `paid` (null = unknown, old MIXED invoices). */
+  cashAmount?: number | null;
+  /** Value already returned. */
+  returnedTotal?: number;
 }
 
 export interface SalesInvoiceCreateInput {
@@ -327,6 +333,8 @@ export interface SalesInvoiceCreateInput {
   discount: number;
   paid: number;
   notes?: string;
+  /** Cash part of `paid`; required for MIXED. */
+  cashAmount?: number;
 }
 
 export interface User {
@@ -373,7 +381,10 @@ export type ActivityEntity =
   | 'BRANCH'
   | 'CASH_CLOSING'
   | 'PRODUCT_DRAFT'
-  | 'STOCKTAKE';
+  | 'STOCKTAKE'
+  | 'SALES_RETURN'
+  | 'CUSTOMER_PAYMENT'
+  | 'SETTINGS';
 
 /** One changed field; `before` is null for new values, `after` for removed ones. */
 export interface ActivityChange {
@@ -506,4 +517,77 @@ export interface StocktakeImportResult {
   unknown: string[];
   outOfScope: string[];
   invalid: string[];
+}
+
+// ---------------------------------------------------------------- store settings
+
+export interface StoreSettings {
+  storeName: string;
+  phone?: string | null;
+  address?: string | null;
+  receiptFooter?: string | null;
+  /** Largest discount an employee may give, % of the invoice before discounts. */
+  employeeMaxDiscountPercent: number;
+}
+
+// ---------------------------------------------------------------- customer account & returns
+
+export interface CustomerPayment {
+  id: number;
+  paymentNumber: string;
+  customerId: number;
+  customerName: string;
+  customerPhone?: string | null;
+  branchId?: number | null;
+  branchName?: string | null;
+  amount: number;
+  paymentMethod: PaymentMethod;
+  notes?: string | null;
+  receivedByName?: string | null;
+  createdAt: string;
+  balanceAfter?: number | null;
+}
+
+export interface CustomerStatementEntry {
+  type: 'INVOICE' | 'PAYMENT' | 'RETURN';
+  id: number;
+  number: string;
+  date: string;
+  description: string;
+  /** Added to (positive) or taken off (negative) the balance. */
+  amount: number;
+  balanceAfter: number;
+}
+
+export interface CustomerAccount {
+  customerId: number;
+  customerName: string;
+  customerPhone: string;
+  /** What the customer owes now. */
+  balance: number;
+  invoicedTotal: number;
+  paidAtSale: number;
+  laterPayments: number;
+  returnCredits: number;
+  entries: CustomerStatementEntry[];
+}
+
+export type RefundMethod = 'CASH' | 'CREDIT';
+
+export interface SalesReturn {
+  id: number;
+  returnNumber: string;
+  invoiceId: number;
+  invoiceNumber: string;
+  customerId?: number | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  branchId?: number | null;
+  total: number;
+  cashRefund: number;
+  creditAmount: number;
+  reason?: string | null;
+  createdByName?: string | null;
+  createdAt: string;
+  items: { invoiceItemId: number; productId: number; productName: string; variantLabel?: string | null; quantity: number; unitRefund: number; total: number }[];
 }

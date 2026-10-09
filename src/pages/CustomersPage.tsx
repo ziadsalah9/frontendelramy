@@ -8,6 +8,7 @@ import type { Customer } from '@/types';
 import { formatCurrency, formatDate, getPaymentMethodLabel, variantLabel } from '@/utils/format';
 import { PageHeader, ConfirmDialog, LoadingState, ErrorState, EmptyState } from '@/components/shared/States';
 import { DataTable, SearchInput, ActionButton, Badge, type Column } from '@/components/shared/DataTable';
+import { CustomerAccountPanel } from '@/components/customers/CustomerAccountPanel';
 import { Modal, FormInput, FormTextarea, FormError, SubmitButton } from '@/components/shared/Modal';
 import { sanitizePhone, isValidPhone, matches, MAX_NAME, MAX_ADDRESS } from '@/utils/validation';
 import { useAuth } from '@/hooks/useAuth';
@@ -252,7 +253,7 @@ export default function CustomersPage() {
         </form>
       </Modal>
 
-      <Modal open={!!viewing} onClose={() => setViewing(null)} title="تفاصيل العميل">
+      <Modal open={!!viewing} onClose={() => setViewing(null)} title="تفاصيل العميل" maxWidth="max-w-2xl">
         {viewing && (
           <div className="space-y-4">
             <div className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
@@ -291,6 +292,7 @@ export default function CustomersPage() {
                   <Receipt className="w-4 h-4" /> عرض كل الفواتير
                 </button>
               </div>
+              <div className="sm:col-span-2"><CustomerAccountPanel customerId={viewing.id} /></div>
             </div>
             {isAdmin && viewing.active !== false && (
               <div className="flex justify-end gap-2 pt-2 border-t">

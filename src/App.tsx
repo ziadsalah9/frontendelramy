@@ -19,6 +19,7 @@ import CashClosingsPage from '@/pages/CashClosingsPage';
 import ActivityLogPage from '@/pages/ActivityLogPage';
 import StocktakesPage from '@/pages/StocktakesPage';
 import StocktakeDetailPage from '@/pages/StocktakeDetailPage';
+import SettingsPage from '@/pages/SettingsPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -88,6 +89,7 @@ export default function App() {
                   </AdminRoute>
                 }
               />
+              <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
               {/* Stocktaking; ADMIN-only end to end. */}
               <Route path="stocktakes" element={<AdminRoute><StocktakesPage /></AdminRoute>} />
               <Route path="stocktakes/:id" element={<AdminRoute><StocktakeDetailPage /></AdminRoute>} />
