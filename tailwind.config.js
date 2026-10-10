@@ -60,11 +60,11 @@ export default {
           foreground: 'hsl(var(--sidebar-foreground))',
         },
         success: {
-          DEFAULT: 'hsl(142 70% 40%)',
+          DEFAULT: 'hsl(142 70% 26%)',   // 6.1:1 on white, 4.9:1 on its own light tint (text-success)
           foreground: 'hsl(0 0% 100%)',
         },
         warning: {
-          DEFAULT: 'hsl(38 92% 50%)',
+          DEFAULT: 'hsl(30 95% 30%)',    // 6.0:1 on white, 4.9:1 on its own light tint (text-warning)
           foreground: 'hsl(0 0% 100%)',
         },
       },

@@ -139,7 +139,7 @@ export default function DashboardPage() {
             <section className="lg:col-span-3 bg-card border rounded-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b">
                 <h3 className="flex items-center gap-2 font-semibold text-foreground"><Receipt className="w-4 h-4 text-primary" />أحدث فواتير البيع</h3>
-                <Link to="/sales-invoices" className="text-sm text-primary hover:underline">عرض الكل</Link>
+                <Link to="/sales-invoices" className="inline-flex items-center min-h-9 px-2 -mx-2 text-sm text-primary hover:underline">عرض الكل</Link>
               </div>
               {data.recentSales.length === 0 ? (
                 <EmptyState title="لا توجد فواتير بعد" description="ستظهر هنا أحدث الفواتير بمجرد إنشائها" />

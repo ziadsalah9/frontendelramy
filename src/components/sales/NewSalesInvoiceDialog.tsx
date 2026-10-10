@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, ScanBarcode, X } from 'lucide-react';
 import { salesInvoicesService } from '@/api/salesInvoices';
@@ -15,6 +15,8 @@ import {
   MAX_NAME, MAX_ADDRESS, MAX_NOTES,
 } from '@/utils/validation';
 import { useMainBranch } from '@/hooks/useMainBranch';
+import { SaleLineRow } from '@/components/sales/SaleLineRow';
+import { ConfirmDialog } from '@/components/shared/States';
 import { CustomerPicker, type CustomerMode } from '@/components/sales/CustomerPicker';
 import { useAuth } from '@/hooks/useAuth';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
@@ -148,9 +150,9 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
 
   // Stock is per colour/size (variant).
   const variantById = useMemo(() => {
-    const map: Record<number, { productId: number; quantity: number; label: string; active: boolean }> = {};
+    const map: Record<number, { productId: number; quantity: number; label: string; code: string; active: boolean }> = {};
     for (const p of products ?? []) {
-      for (const v of p.variants ?? []) map[v.id] = { productId: p.id, quantity: v.quantity ?? 0, label: v.label, active: v.active !== false };
+      for (const v of p.variants ?? []) map[v.id] = { productId: p.id, quantity: v.quantity ?? 0, label: v.label, code: v.code, active: v.active !== false };
     }
     return map;
   }, [products]);
@@ -173,6 +175,8 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
   // adds 1 to the line that already has it.
   const [scanCode, setScanCode] = useState('');
   const [scanning, setScanning] = useState(false);
+  // The cursor stays in the scan box: a scanner types into whatever has focus.
+  const scanRef = useRef<HTMLInputElement>(null);
   const addByCode = async () => {
     const code = scanCode.trim();
     if (!code || scanning) return;
@@ -193,12 +197,22 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
       setScanCode('');
     } catch (err) {
       toast.error(err instanceof Error && !('isAxiosError' in err) ? err.message : extractApiError(err).message);
+      scanRef.current?.select();   // a wrong code is replaced by the next scan or typing
     } finally {
       setScanning(false);
+      scanRef.current?.focus();
     }
   };
+  // Picking the customer is the one thing done away from the scan box: go back to it.
+  useEffect(() => {
+    if (open && form.customerId != null) scanRef.current?.focus();
+  }, [open, form.customerId]);
+
   const removeItem = (idx: number) => {
-    setForm((f) => ({ ...f, items: f.items.filter((_, i) => i !== idx) }));
+    setForm((f) => {
+      const rest = f.items.filter((_, i) => i !== idx);
+      return { ...f, items: rest.length > 0 ? rest : [emptyItem()] };
+    });
     setItemErrors({});
   };
 
@@ -399,8 +413,13 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
   const inputCls = (err?: string) =>
     `h-10 px-2 rounded-lg border bg-background text-sm ${err ? 'border-destructive' : 'border-input'}`;
 
+  // Closing a sale that already has items would throw them away: ask first.
+  const [confirmClose, setConfirmClose] = useState(false);
+  const requestClose = () => (form.items.some((i) => i.productId) ? setConfirmClose(true) : onClose());
+
   return (
-    <Modal open={open} onClose={onClose} title="فاتورة بيع جديدة" maxWidth="max-w-4xl" persistent busy={loading}>
+    <>
+    <Modal open={open} onClose={requestClose} title="فاتورة بيع جديدة" maxWidth="max-w-4xl" persistent busy={loading}>
       <form onSubmit={handleSubmit} className="space-y-4" noValidate>
         <CustomerPicker
           customers={customers ?? []}
@@ -423,12 +442,15 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
             <ScanBarcode className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary pointer-events-none" />
             <input
               id="sale-scan"
+              ref={scanRef}
+              data-autofocus
               type="text"
               value={scanCode}
               onChange={(e) => setScanCode(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void addByCode(); } }}
               placeholder={scanning ? 'جاري البحث...' : 'امسح الباركود أو اكتب الكود ثم Enter'}
-              disabled={!branchIdNum || scanning}
+              disabled={!branchIdNum}
+              readOnly={scanning}
               autoComplete="off"
               className="w-full h-11 pr-11 pl-3 rounded-lg border-2 border-primary/30 bg-primary/5 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
@@ -447,11 +469,34 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
           ) : (
             <div className="space-y-3">
               {form.items.map((item, idx) => {
+                const chosen = item.productId && item.variantId ? variantById[Number(item.variantId)] : undefined;
+                const chosenProduct = chosen ? (products ?? []).find((p) => p.id === chosen.productId) : undefined;
+                // Picked (scanned or chosen): a compact cart line. Not yet: the two pickers.
+                if (chosen && chosenProduct) {
+                  return (
+                    <SaleLineRow key={item.key}
+                      name={chosenProduct.name}
+                      detail={[chosen.label, chosen.code].filter(Boolean).join(' · ')}
+                      unitPrice={price(item.productId)}
+                      available={chosen.quantity}
+                      quantity={item.quantity}
+                      discount={item.discount}
+                      discountPercent={item.discountPercent}
+                      lineTotal={lineTotal(item)}
+                      error={itemErrors[idx]}
+                      onQuantity={(v) => updateItem(idx, 'quantity', v)}
+                      onStep={() => scanRef.current?.focus()}
+                      onDiscountPercent={(v) => updateItem(idx, 'discountPercent', v)}
+                      onDiscountAmount={(v) => updateItem(idx, 'discount', v)}
+                      onRemove={() => removeItem(idx)}
+                    />
+                  );
+                }
                 const options = sellableProducts.some((p) => String(p.id) === item.productId) || !item.productId
                   ? sellableProducts
                   : [...sellableProducts, ...(products ?? []).filter((p) => String(p.id) === item.productId)];
                 return (
-                  <div key={item.key} className="p-3 rounded-lg border space-y-2">
+                  <div key={item.key} className="p-3 rounded-lg border border-dashed space-y-2">
                     <div className="flex flex-wrap gap-2 items-end">
                       <div className="flex-1 min-w-[180px] flex flex-col gap-1">
                         <label className="text-xs text-muted-foreground">المنتج</label>
@@ -468,37 +513,10 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
                         <label className="text-xs text-muted-foreground">اللون / المقاس</label>
                         <select value={item.variantId} onChange={(e) => updateItem(idx, 'variantId', e.target.value)} disabled={!item.productId} aria-label="اللون والمقاس" className={`w-full ${inputCls(itemErrors[idx] && !item.variantId ? itemErrors[idx] : undefined)} disabled:bg-muted/30`}>
                           <option value="">اختر</option>
-                          {(item.variantId && !sellableVariants(item.productId).some((v) => String(v.id) === item.variantId)
-                            ? [...sellableVariants(item.productId), ...((products ?? []).find((p) => String(p.id) === item.productId)?.variants.filter((v) => String(v.id) === item.variantId) ?? [])]
-                            : sellableVariants(item.productId)
-                          ).map((v) => (
+                          {sellableVariants(item.productId).map((v) => (
                             <option key={v.id} value={v.id}>{v.label} (متاح: {v.quantity})</option>
                           ))}
                         </select>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground">المتاح</label>
-                        <div className="w-16 h-10 px-2 flex items-center rounded-lg border border-input bg-muted/30 text-sm" dir="ltr">{item.variantId ? available(item.variantId) : '-'}</div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground">الكمية</label>
-                        <input type="text" inputMode="numeric" value={item.quantity} onChange={(e) => updateItem(idx, 'quantity', e.target.value)} aria-label="الكمية" className={`w-20 ${inputCls(itemErrors[idx])}`} dir="ltr" />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground">سعر الوحدة</label>
-                        <div className="w-24 h-10 px-2 flex items-center rounded-lg border border-input bg-muted/30 text-sm" dir="ltr">{item.productId ? formatCurrency(price(item.productId)) : '-'}</div>
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground">خصم %</label>
-                        <input type="text" inputMode="decimal" value={item.discountPercent} onChange={(e) => updateItem(idx, 'discountPercent', e.target.value)} aria-label="نسبة الخصم" className={`w-20 ${inputCls()}`} dir="ltr" />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground">قيمة الخصم (ج.م)</label>
-                        <input type="text" inputMode="decimal" value={item.discount} onChange={(e) => updateItem(idx, 'discount', e.target.value)} aria-label="قيمة الخصم" className={`w-24 ${inputCls()}`} dir="ltr" />
-                      </div>
-                      <div className="flex flex-col gap-1">
-                        <label className="text-xs text-muted-foreground">إجمالي البند</label>
-                        <div className="w-28 h-10 px-2 flex items-center rounded-lg bg-primary/5 border border-primary/20 text-sm font-bold text-primary" dir="ltr">{item.productId ? formatCurrency(lineTotal(item)) : '-'}</div>
                       </div>
                       {form.items.length > 1 && (
                         <button type="button" onClick={() => removeItem(idx)} aria-label="حذف البند" className="p-2.5 rounded-lg text-destructive hover:bg-destructive/10"><X className="w-4 h-4" /></button>
@@ -618,5 +636,11 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
         </div>
       </form>
     </Modal>
+    <ConfirmDialog open={confirmClose} destructive title="إلغاء الفاتورة؟"
+      description="البنود التي أضفتها ستُحذف ولن تُحفظ الفاتورة."
+      confirmText="نعم، إلغاء" cancelText="متابعة البيع"
+      onCancel={() => setConfirmClose(false)}
+      onConfirm={() => { setConfirmClose(false); onClose(); }} />
+    </>
   );
 }

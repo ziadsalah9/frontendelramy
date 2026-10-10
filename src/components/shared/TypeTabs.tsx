@@ -47,7 +47,7 @@ export function TypeTabs({ types, value, onChange, idPrefix = 'type-tab' }: {
             <button key={t.key} id={`${idPrefix}-${t.key}`} type="button" role="tab" aria-selected={on} onClick={() => onChange(t.key)}
               className={`flex items-center gap-1.5 h-9 px-3 rounded-full border text-sm whitespace-nowrap transition-colors ${on ? 'bg-primary text-white border-primary' : 'bg-card hover:bg-accent'}`}>
               {t.label}
-              <span className={`min-w-[1.25rem] px-1.5 rounded-full text-[11px] font-semibold ${on ? 'bg-white/20' : 'bg-muted text-muted-foreground'}`}>{t.count}</span>
+              <span className={`min-w-[1.25rem] px-1.5 rounded-full text-[11px] font-semibold ${on ? 'bg-black/25' : 'bg-muted text-muted-foreground'}`}>{t.count}</span>
             </button>
           );
         })}

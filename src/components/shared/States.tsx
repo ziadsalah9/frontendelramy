@@ -1,4 +1,4 @@
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export function LoadingState({ message = 'جاري التحميل...' }: { message?: string }) {
@@ -83,10 +83,36 @@ export function ConfirmDialog({
     return () => window.removeEventListener('keydown', onKey);
   }, [open, loading, onCancel]);
 
+  // Keyboard: focus starts on "cancel" (the safe answer), Tab stays inside the box,
+  // and focus goes back to where it was when the box closes.
+  const boxRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const opener = document.activeElement as HTMLElement | null;
+    const buttons = () => Array.from(boxRef.current?.querySelectorAll<HTMLButtonElement>('button:not([disabled])') ?? []);
+    buttons()[0]?.focus();
+    const onTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      const items = buttons();
+      if (items.length === 0) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const at = items.indexOf(document.activeElement as HTMLButtonElement);
+      items[(at + (e.shiftKey ? items.length - 1 : 1)) % items.length].focus();
+    };
+    // Capture phase: the window of a form underneath must not also react to this Tab.
+    window.addEventListener('keydown', onTab, true);
+    return () => {
+      window.removeEventListener('keydown', onTab, true);
+      opener?.focus?.();
+    };
+  }, [open]);
+
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 animate-in fade-in" onClick={loading ? undefined : onCancel}>
       <div
+        ref={boxRef}
         role="alertdialog"
         aria-modal="true"
         aria-label={title}

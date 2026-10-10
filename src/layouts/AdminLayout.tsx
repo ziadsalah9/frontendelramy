@@ -106,7 +106,10 @@ export default function AdminLayout() {
   const startSale = useCallback(() => navigate('/sales-invoices?new=1'), [navigate]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'F2') { e.preventDefault(); startSale(); }
+      if (e.key !== 'F2') return;
+      e.preventDefault();
+      // Never leave a form the user is filling in: with a window open, F2 does nothing.
+      if (!document.querySelector('[role="dialog"]')) startSale();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -130,12 +133,13 @@ export default function AdminLayout() {
             <Sofa className="w-5 h-5 text-primary" />
           </div>
           <div className="flex-1 min-w-0">
-            <h1 className="text-sm font-bold text-white truncate">مفروشات الرامى</h1>
+            <p className="text-sm font-bold text-white truncate">مفروشات الرامى</p>
             <p className="text-xs text-sidebar-foreground/60 truncate">لوحة التحكم</p>
           </div>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="lg:hidden p-1 text-sidebar-foreground/70 hover:text-white"
+            aria-label="إغلاق القائمة"
+            className="lg:hidden p-2 -m-1 text-sidebar-foreground/70 hover:text-white"
           >
             <X className="w-5 h-5" />
           </button>
@@ -146,9 +150,9 @@ export default function AdminLayout() {
             const items = navItems.filter((item) => item.group === group && (!item.adminOnly || isAdmin));
             if (items.length === 0) return null;
             return (
-              <div key={group ?? 'home'} className={group ? 'mt-4' : ''}>
+              <div key={group ?? 'home'} className={group ? 'mt-3' : ''}>
                 {group && (
-                  <p className="px-3 mb-1 text-[11px] font-semibold tracking-wide text-sidebar-foreground/45">
+                  <p className="px-3 mb-1 text-[11px] font-semibold tracking-wide text-sidebar-foreground/70">
                     {NAV_GROUPS.find((g) => g.key === group)?.label}
                   </p>
                 )}
@@ -162,7 +166,7 @@ export default function AdminLayout() {
                         end={item.exact}
                         onClick={() => setSidebarOpen(false)}
                         className={({ isActive }) =>
-                          `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                          `flex items-center gap-3 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
                             isActive
                               ? 'bg-primary text-white shadow-lg shadow-primary/20'
                               : 'text-sidebar-foreground/70 hover:bg-white/5 hover:text-white'
@@ -248,7 +252,7 @@ export default function AdminLayout() {
             className="flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-white text-sm font-semibold shadow-sm shadow-primary/30 hover:bg-primary/90 transition-colors">
             <Plus className="w-4 h-4" />
             بيع جديد
-            <kbd className="hidden md:inline px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-mono">F2</kbd>
+            <kbd className="hidden md:inline px-1.5 py-0.5 rounded bg-black/25 text-[10px] font-mono">F2</kbd>
           </button>
         </header>
 

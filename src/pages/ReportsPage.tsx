@@ -122,7 +122,7 @@ function ReportBody({ r, fetching }: { r: SalesReport; fetching: boolean }) {
         {r.days.every((d) => d.invoices === 0 && d.returns === 0) ? (
           <p className="text-sm text-muted-foreground text-center py-6">لا توجد مبيعات في هذه الفترة</p>
         ) : (
-          <div className="overflow-x-auto">
+          <div className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" tabIndex={0} role="region" aria-label="جدول قابل للتمرير">
             <div className="flex items-end gap-1 h-48 min-w-fit" role="img" aria-label="رسم المبيعات اليومية">
               {r.days.map((d) => (
                 <div key={d.date} className="flex flex-col items-center justify-end h-full w-6 shrink-0 gap-0.5" title={`${formatDate(d.date)}\nصافي ${formatCurrency(d.net)} · ربح ${formatCurrency(d.profit)} · ${d.invoices} فاتورة`}>
@@ -174,7 +174,7 @@ function TableCard({ title, head, rows, empty }: { title: string; head: string[]
     <section className="p-4 rounded-xl border bg-card">
       <h3 className="text-sm font-semibold mb-3">{title}</h3>
       {rows.length === 0 ? <p className="text-sm text-muted-foreground">{empty}</p> : (
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded" tabIndex={0} role="region" aria-label="جدول قابل للتمرير">
           <table className="w-full text-sm">
             <thead><tr className="text-xs text-muted-foreground">{head.map((h) => <th key={h} className="text-right font-medium pb-2">{h}</th>)}</tr></thead>
             <tbody>{rows.map((row, i) => <tr key={i} className="border-t">{row.map((c, j) => <td key={j} className="py-2">{c}</td>)}</tr>)}</tbody>

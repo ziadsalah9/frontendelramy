@@ -58,14 +58,13 @@ export function DataTable<T extends { id?: number | string }>({
   // Full-width fields go last so the two-column grid above them stays even.
   const bodyCols = columns.filter((c) => c !== titleCol && !isActions(c) && c.mobile !== 'hide')
     .sort((a, b) => Number(a.mobile === 'full') - Number(b.mobile === 'full'));
-  // Table rows stay rows (focusable, Enter opens them); phone cards act as buttons.
-  const clickProps = (row: T, asButton: boolean) => onRowClick ? {
+  // Table rows stay rows (focusable, Enter opens them).
+  const rowProps = (row: T) => onRowClick ? {
     onClick: () => onRowClick(row),
     onKeyDown: (e: KeyboardEvent) => {
       if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onRowClick(row); }
     },
     tabIndex: 0,
-    ...(asButton ? { role: 'button' as const } : {}),
     'aria-label': rowLabel?.(row),
   } : {};
 
@@ -86,7 +85,7 @@ export function DataTable<T extends { id?: number | string }>({
             </thead>
             <tbody>
               {data.map((row, i) => (
-                <tr key={row.id ?? i} {...clickProps(row, false)}
+                <tr key={row.id ?? i} {...rowProps(row)}
                   className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${onRowClick ? 'cursor-pointer focus-visible:outline-none focus-visible:bg-primary/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring' : ''}`}>
                   {columns.map((col) => (
                     <td key={col.key} onClick={isActions(col) ? stop : undefined} className={`px-4 py-3 text-foreground ${col.className ?? ''}`}>
@@ -103,9 +102,14 @@ export function DataTable<T extends { id?: number | string }>({
       {/* Phones: one card per row */}
       <ul className="md:hidden space-y-2.5">
         {data.map((row, i) => (
-          <li key={row.id ?? i} {...clickProps(row, true)}
-            className={`rounded-xl border bg-card p-3.5 ${onRowClick ? 'cursor-pointer active:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring' : ''}`}>
-            {titleCol && <div className="font-semibold text-foreground mb-2">{cell(titleCol, row)}</div>}
+          // A tap anywhere on the card opens it (mouse and touch); keyboard and screen readers
+          // use the title, a real button, so no button sits inside another one.
+          <li key={row.id ?? i} onClick={onRowClick ? () => onRowClick(row) : undefined}
+            className={`rounded-xl border bg-card p-3.5 ${onRowClick ? 'cursor-pointer active:bg-muted/40' : ''}`}>
+            {titleCol && (onRowClick
+              ? <button type="button" aria-label={rowLabel?.(row)} onClick={(e) => { e.stopPropagation(); onRowClick(row); }}
+                  className="block w-full min-h-9 text-right font-semibold text-foreground mb-1 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">{cell(titleCol, row)}</button>
+              : <div className="font-semibold text-foreground mb-2">{cell(titleCol, row)}</div>)}
             {bodyCols.length > 0 && (
               <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
                 {bodyCols.map((col) => (

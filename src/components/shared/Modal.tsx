@@ -50,8 +50,12 @@ export function Modal({
           'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
         ) ?? [],
       );
-    // Skip the X button so typing can start in the first field.
-    const first = focusables().find((el) => el.getAttribute('aria-label') !== 'إغلاق') ?? focusables()[0];
+    // A field marked data-autofocus (e.g. the barcode box of a sale) takes the focus; otherwise
+    // the first field does, skipping the X button so typing can start at once.
+    // On a touch screen no field is focused (that would raise the on-screen keyboard over the form).
+    const touch = window.matchMedia?.('(pointer: coarse)').matches;
+    const first = touch ? dialog : dialog?.querySelector<HTMLElement>('[data-autofocus]:not([disabled])')
+      ?? focusables().find((el) => el.getAttribute('aria-label') !== 'إغلاق') ?? focusables()[0];
     (first ?? dialog)?.focus();
 
     const onTab = (e: KeyboardEvent) => {
