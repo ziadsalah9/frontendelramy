@@ -1,12 +1,9 @@
 import { useState } from 'react';
 import { Plus, X, Layers, CheckCircle2, AlertTriangle, Info } from 'lucide-react';
-import { PRODUCT_COLORS } from '@/types';
+import { useProductColors, withCurrentColor } from '@/hooks/useProductColors';
+import { ColorSwatch } from '@/components/shared/ColorSwatch';
 import { newVariantRow, comboKey, distributedQuantity, type VariantRow } from '@/utils/variants';
 import { sanitizeInt } from '@/utils/validation';
-
-/** Catalog options plus the row's current value if it is a legacy value not in the list. */
-const withCurrent = (options: { value: string; label: string }[], current: string) =>
-  current && !options.some((o) => o.value === current) ? [...options, { value: current, label: current }] : options;
 
 /** Matches product_variants.size (VARCHAR(50)) and the backend check. */
 const MAX_SIZE = 50;
@@ -42,6 +39,7 @@ export function VariantsEditor({
   error?: string;
   draft?: boolean;
 }) {
+  const { options: colors, hexOf } = useProductColors();
   const [bulkOpen, setBulkOpen] = useState(false);
   const [bulkColors, setBulkColors] = useState<string[]>([]);
   const [bulkSizesText, setBulkSizesText] = useState('');
@@ -136,10 +134,13 @@ export function VariantsEditor({
           const changed = !draft && r.id != null && r.qty !== '' && Number(r.qty) !== (r.quantity ?? 0);
           return (
             <div key={r.key} className="grid grid-cols-2 sm:grid-cols-[1fr_1fr_110px_40px] gap-2 items-start p-2 rounded-lg border bg-background">
-              <select value={r.color} onChange={(e) => update(r.key, 'color', e.target.value)} aria-label="اللون" className={fieldCls}>
-                <option value="">بدون لون</option>
-                {withCurrent(PRODUCT_COLORS, r.color).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+              <div className="relative">
+                {r.color && <ColorSwatch name={r.color} hex={hexOf(r.color)} className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 pointer-events-none" />}
+                <select value={r.color} onChange={(e) => update(r.key, 'color', e.target.value)} aria-label="اللون" className={`${fieldCls} ${r.color ? 'pr-8' : ''}`}>
+                  <option value="">بدون لون</option>
+                  {withCurrentColor(colors, r.color).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
               <input
                 type="text"
                 value={r.size}
@@ -192,12 +193,14 @@ export function VariantsEditor({
           <div>
             <p className="text-xs font-medium mb-1.5">الألوان</p>
             <div className="flex flex-wrap gap-1.5">
-              {PRODUCT_COLORS.map((c) => (
+              {colors.map((c) => (
                 <button key={c.value} type="button" aria-pressed={bulkColors.includes(c.value)} onClick={() => setBulkColors(toggle(bulkColors, c.value))}
-                  className={`px-2.5 py-1 rounded-full text-xs border transition-colors ${bulkColors.includes(c.value) ? 'bg-primary text-white border-primary' : 'bg-background border-input hover:bg-accent'}`}>
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs border transition-colors ${bulkColors.includes(c.value) ? 'bg-primary text-white border-primary' : 'bg-background border-input hover:bg-accent'}`}>
+                  <ColorSwatch name={c.value} hex={c.hex} className="w-3 h-3" />
                   {c.label}
                 </button>
               ))}
+              {colors.length === 0 && <span className="text-xs text-muted-foreground">لا توجد ألوان. أضفها من الإعدادات.</span>}
             </div>
           </div>
           <div>

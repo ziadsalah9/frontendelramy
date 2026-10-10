@@ -11,6 +11,7 @@ import { FormSection } from '@/components/products/FormSection';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { sanitizeDecimal } from '@/utils/validation';
 import { ProductTypesSection } from '@/components/settings/ProductTypesSection';
+import { ProductColorsSection } from '@/components/settings/ProductColorsSection';
 
 type Form = { storeName: string; phone: string; address: string; receiptFooter: string; employeeMaxDiscountPercent: string };
 
@@ -87,6 +88,7 @@ export default function SettingsPage() {
       {/* Separate from the form above: each change is saved right away. */}
       <div className="mt-6">
         <ProductTypesSection />
+        <ProductColorsSection />
       </div>
     </div>
   );

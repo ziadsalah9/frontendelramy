@@ -55,25 +55,16 @@ export interface ItemType {
   drafts: number;
 }
 
-export const PRODUCT_COLORS: { value: string; label: string }[] = [
-  { value: 'أبيض', label: 'أبيض' },
-  { value: 'بيج', label: 'بيج' },
-  { value: 'رمادي', label: 'رمادي' },
-  { value: 'أسود', label: 'أسود' },
-  { value: 'كحلي', label: 'كحلي' },
-  { value: 'أحمر', label: 'أحمر' },
-  { value: 'أخضر', label: 'أخضر' },
-  { value: 'زيتي', label: 'زيتي' },
-  { value: 'بني', label: 'بني' },
-  { value: 'وردي', label: 'وردي' },
-  { value: 'أصفر', label: 'أصفر' },
-  { value: 'برتقالي', label: 'برتقالي' },
-  { value: 'بنفسجي', label: 'بنفسجي' },
-  { value: 'فيروزي', label: 'فيروزي' },
-  { value: 'ذهبي', label: 'ذهبي' },
-  { value: 'فضي', label: 'فضي' },
-  { value: 'متعدد', label: 'متعدد الألوان' },
-];
+/** A colour from Settings (V25). `hex` is an optional swatch, e.g. "#1e2a5a". */
+export interface ProductColor {
+  id: number;
+  name: string;
+  hex: string | null;
+  active: boolean;
+  /** How many colour/size rows / incomplete-product rows use it (admin list only). */
+  items: number;
+  drafts: number;
+}
 
 /**
  * One colour/size of a product, with its own stock, code and barcode.
