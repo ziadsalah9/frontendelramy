@@ -230,7 +230,7 @@ export function CustomerPicker({
             )}
             {errors.customer && <p className="mt-1 text-xs text-destructive">{errors.customer}</p>}
             {!query.trim() && !errors.customer && (
-              <p className="mt-1 text-xs text-muted-foreground">اكتب ٣ أرقام على الأقل من الهاتف، أو جزءاً من الاسم. استخدم الأسهم و Enter للاختيار.</p>
+              <p className="mt-1 text-xs text-muted-foreground">اكتب 3 أرقام على الأقل من الهاتف، أو جزءاً من الاسم. استخدم الأسهم و Enter للاختيار.</p>
             )}
           </div>
         )

@@ -1,5 +1,5 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { productDraftsService } from '@/api/productDrafts';
 import {
@@ -13,6 +13,7 @@ import {
   Receipt,
   UserCog,
   LogOut,
+  Plus,
   Activity,
   KeyRound,
   Menu,
@@ -40,36 +41,44 @@ import { getRoleLabel } from '@/utils/format';
 // guard in App.tsx enforces the same rule.
 // `exact` is needed on "/" because NavLink matches on prefix by default,
 // which would keep the dashboard highlighted on every page.
-const navItems = [
-  { to: '/', label: 'الرئيسية', icon: LayoutDashboard, adminOnly: false, exact: true },
-  // Includes cost and profit; /api/reports is ADMIN-only.
-  { to: '/reports', label: 'التقارير', icon: BarChart3, adminOnly: true, exact: false },
-  { to: '/demand', label: 'حركة الأصناف', icon: Activity, adminOnly: true, exact: false },
-  { to: '/products', label: 'المنتجات', icon: Package, adminOnly: false, exact: false },
-  // Excel rows missing data; not part of the system until completed.
-  { to: '/product-drafts', label: 'منتجات غير مكتملة', icon: FilePen, adminOnly: true, exact: false },
-  // Price management is ADMIN-only on the backend.
-  { to: '/product-prices', label: 'الأسعار', icon: Tags, adminOnly: true, exact: false },
-  { to: '/customers', label: 'العملاء', icon: Users, adminOnly: false, exact: false },
+type NavGroup = 'sales' | 'stock' | 'buy' | 'admin';
+const NAV_GROUPS: { key: NavGroup; label: string }[] = [
+  { key: 'sales', label: 'البيع' },
+  { key: 'stock', label: 'المخزون' },
+  { key: 'buy', label: 'المشتريات' },
+  { key: 'admin', label: 'الإدارة' },
+];
+
+const navItems: { to: string; label: string; icon: typeof LayoutDashboard; adminOnly: boolean; group: NavGroup | null; exact: boolean }[] = [
+  { to: '/', label: 'الرئيسية', icon: LayoutDashboard, adminOnly: false, group: null, exact: true },
+  { to: '/sales-invoices', label: 'فواتير البيع', icon: Receipt, adminOnly: false, group: 'sales', exact: false },
+  { to: '/customers', label: 'العملاء', icon: Users, adminOnly: false, group: 'sales', exact: false },
   // Employees collect installments too; plans are created by admins at the sale.
-  { to: '/installments', label: 'الأقساط', icon: CalendarClock, adminOnly: false, exact: false },
+  { to: '/installments', label: 'الأقساط', icon: CalendarClock, adminOnly: false, group: 'sales', exact: false },
   // Sales, purchase (admin) and cash-closing documents in one list.
-  { to: '/receipts', label: 'الفواتير والإيصالات', icon: FileText, adminOnly: false, exact: false },
-  { to: '/cash-closings', label: 'إغلاق الكاش', icon: Calculator, adminOnly: false, exact: false },
+  { to: '/receipts', label: 'الفواتير والإيصالات', icon: FileText, adminOnly: false, group: 'sales', exact: false },
+  { to: '/cash-closings', label: 'إغلاق الكاش', icon: Calculator, adminOnly: false, group: 'sales', exact: false },
+  { to: '/products', label: 'المنتجات', icon: Package, adminOnly: false, group: 'stock', exact: false },
+  // Excel rows missing data; not part of the system until completed.
+  { to: '/product-drafts', label: 'منتجات غير مكتملة', icon: FilePen, adminOnly: true, group: 'stock', exact: false },
+  // Price management is ADMIN-only on the backend.
+  { to: '/product-prices', label: 'الأسعار', icon: Tags, adminOnly: true, group: 'stock', exact: false },
   // Stocktaking changes stock; /api/stocktakes is ADMIN-only.
-  { to: '/stocktakes', label: 'الجرد', icon: ClipboardCheck, adminOnly: true, exact: false },
+  { to: '/stocktakes', label: 'الجرد', icon: ClipboardCheck, adminOnly: true, group: 'stock', exact: false },
+  { to: '/demand', label: 'حركة الأصناف', icon: Activity, adminOnly: true, group: 'stock', exact: false },
   // /api/purchase-invoices is ADMIN-only in full.
-  { to: '/purchase-invoices', label: 'فواتير الشراء', icon: ShoppingCart, adminOnly: true, exact: false },
+  { to: '/purchase-invoices', label: 'فواتير الشراء', icon: ShoppingCart, adminOnly: true, group: 'buy', exact: false },
   // Suppliers and expenses are ADMIN-only end to end.
-  { to: '/suppliers', label: 'الموردين', icon: Truck, adminOnly: true, exact: false },
-  { to: '/expenses', label: 'المصروفات', icon: Wallet, adminOnly: true, exact: false },
-  { to: '/sales-invoices', label: 'فواتير البيع', icon: Receipt, adminOnly: false, exact: false },
+  { to: '/suppliers', label: 'الموردين', icon: Truck, adminOnly: true, group: 'buy', exact: false },
+  // Includes cost and profit; /api/reports is ADMIN-only.
+  { to: '/reports', label: 'التقارير', icon: BarChart3, adminOnly: true, group: 'admin', exact: false },
+  { to: '/expenses', label: 'المصروفات', icon: Wallet, adminOnly: true, group: 'admin', exact: false },
   // /api/users is ADMIN-only in full, so employees cannot open this page.
-  { to: '/users', label: 'المستخدمون', icon: UserCog, adminOnly: true, exact: false },
+  { to: '/users', label: 'المستخدمون', icon: UserCog, adminOnly: true, group: 'admin', exact: false },
   // Who changed what; /api/activity-logs is ADMIN-only.
-  { to: '/activity-log', label: 'سجل النشاط', icon: History, adminOnly: true, exact: false },
+  { to: '/activity-log', label: 'سجل النشاط', icon: History, adminOnly: true, group: 'admin', exact: false },
   // Store details and the employee discount limit; PUT /api/settings is ADMIN-only.
-  { to: '/settings', label: 'الإعدادات', icon: Settings, adminOnly: true, exact: false },
+  { to: '/settings', label: 'الإعدادات', icon: Settings, adminOnly: true, group: 'admin', exact: false },
 ];
 
 export default function AdminLayout() {
@@ -92,6 +101,16 @@ export default function AdminLayout() {
   const { lowStock, count: lowStockCount } = useLowStockAlerts(() =>
     setLowStockOpen(true),
   );
+
+  // The most frequent task in the shop: one click (or F2) from any page.
+  const startSale = useCallback(() => navigate('/sales-invoices?new=1'), [navigate]);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'F2') { e.preventDefault(); startSale(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [startSale]);
 
   const handleLogout = () => {
     logout();
@@ -122,59 +141,66 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
-          {navItems
-            .filter((item) => !item.adminOnly || isAdmin)
-            .map((item) => {
-            const Icon = item.icon;
+        <nav className="flex-1 overflow-y-auto px-3 py-3" aria-label="القائمة الرئيسية">
+          {[null, ...NAV_GROUPS.map((g) => g.key)].map((group) => {
+            const items = navItems.filter((item) => item.group === group && (!item.adminOnly || isAdmin));
+            if (items.length === 0) return null;
             return (
-              <NavLink
-                key={item.to}
-                to={item.to}
-                end={item.exact}
-                onClick={() => setSidebarOpen(false)}
-                className={({ isActive }) =>
-                  `flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                    isActive
-                      ? 'bg-primary text-white shadow-lg shadow-primary/20'
-                      : 'text-sidebar-foreground/70 hover:bg-white/5 hover:text-white'
-                  }`
-                }
-              >
-                <Icon className="w-[18px] h-[18px] shrink-0" />
-                <span className="truncate flex-1">{item.label}</span>
-                {item.to === '/product-drafts' && draftCount > 0 && (
-                  <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-warning text-white text-xs font-bold flex items-center justify-center">{draftCount}</span>
+              <div key={group ?? 'home'} className={group ? 'mt-4' : ''}>
+                {group && (
+                  <p className="px-3 mb-1 text-[11px] font-semibold tracking-wide text-sidebar-foreground/45">
+                    {NAV_GROUPS.find((g) => g.key === group)?.label}
+                  </p>
                 )}
-              </NavLink>
+                <div className="space-y-0.5">
+                  {items.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <NavLink
+                        key={item.to}
+                        to={item.to}
+                        end={item.exact}
+                        onClick={() => setSidebarOpen(false)}
+                        className={({ isActive }) =>
+                          `flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                            isActive
+                              ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                              : 'text-sidebar-foreground/70 hover:bg-white/5 hover:text-white'
+                          }`
+                        }
+                      >
+                        <Icon className="w-[18px] h-[18px] shrink-0" />
+                        <span className="truncate flex-1">{item.label}</span>
+                        {item.to === '/product-drafts' && draftCount > 0 && (
+                          <span className="min-w-[20px] h-5 px-1.5 rounded-full bg-warning text-white text-xs font-bold flex items-center justify-center">{draftCount}</span>
+                        )}
+                      </NavLink>
+                    );
+                  })}
+                </div>
+              </div>
             );
           })}
         </nav>
 
         <div className="border-t border-white/10 p-3 shrink-0">
-          <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/5 mb-2">
-            <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold shrink-0">
+          <div className="flex items-center gap-2 px-2 py-2 rounded-lg bg-white/5">
+            <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold shrink-0" aria-hidden="true">
               {user?.fullName?.charAt(0) ?? 'U'}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-white truncate">{user?.fullName ?? 'مستخدم'}</p>
+              <p className="text-sm font-medium text-white truncate" dir="auto">{user?.fullName ?? 'مستخدم'}</p>
               <p className="text-xs text-sidebar-foreground/60 truncate">{user ? getRoleLabel(user.role) : ''}</p>
             </div>
+            <button type="button" onClick={() => { setPasswordOpen(true); setSidebarOpen(false); }} title="تغيير كلمة المرور" aria-label="تغيير كلمة المرور"
+              className="p-2 rounded-lg text-sidebar-foreground/70 hover:bg-white/10 hover:text-white transition-colors">
+              <KeyRound className="w-[18px] h-[18px]" />
+            </button>
+            <button type="button" onClick={handleLogout} title="تسجيل الخروج" aria-label="تسجيل الخروج"
+              className="p-2 rounded-lg text-sidebar-foreground/70 hover:bg-destructive/20 hover:text-red-300 transition-colors">
+              <LogOut className="w-[18px] h-[18px]" />
+            </button>
           </div>
-          <button
-            onClick={() => { setPasswordOpen(true); setSidebarOpen(false); }}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-white/10 hover:text-white transition-all"
-          >
-            <KeyRound className="w-[18px] h-[18px]" />
-            <span>تغيير كلمة المرور</span>
-          </button>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sidebar-foreground/70 hover:bg-destructive/20 hover:text-red-300 transition-all"
-          >
-            <LogOut className="w-[18px] h-[18px]" />
-            <span>تسجيل الخروج</span>
-          </button>
         </div>
       </aside>
 
@@ -189,6 +215,7 @@ export default function AdminLayout() {
           <div className="flex items-center gap-3">
             <button
               onClick={() => setSidebarOpen(true)}
+              aria-label="فتح القائمة"
               className="lg:hidden p-2 rounded-lg hover:bg-accent transition-colors"
             >
               <Menu className="w-5 h-5" />
@@ -217,15 +244,12 @@ export default function AdminLayout() {
               )}
             </button>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="text-left hidden sm:block">
-              <p className="text-sm font-medium text-foreground">{user?.fullName ?? 'مستخدم'}</p>
-              <p className="text-xs text-muted-foreground">{user ? getRoleLabel(user.role) : ''}</p>
-            </div>
-            <div className="w-9 h-9 rounded-full bg-primary flex items-center justify-center text-white text-sm font-bold">
-              {user?.fullName?.charAt(0) ?? 'U'}
-            </div>
-          </div>
+          <button type="button" onClick={startSale} title="فاتورة بيع جديدة (F2)"
+            className="flex items-center gap-2 h-10 px-4 rounded-lg bg-primary text-white text-sm font-semibold shadow-sm shadow-primary/30 hover:bg-primary/90 transition-colors">
+            <Plus className="w-4 h-4" />
+            بيع جديد
+            <kbd className="hidden md:inline px-1.5 py-0.5 rounded bg-white/20 text-[10px] font-mono">F2</kbd>
+          </button>
         </header>
 
         <main className="flex-1 overflow-y-auto p-4 lg:p-6">

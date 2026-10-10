@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
 import { LoadingState, ErrorState, EmptyState } from './States';
 
 export interface Column<T> {
@@ -6,8 +6,25 @@ export interface Column<T> {
   header: string;
   render?: (row: T) => ReactNode;
   className?: string;
+  /**
+   * Phone layout (cards): 'title' heads the card (default: the first
+   * column), 'hide' leaves it out, 'full' spans the card's width. The
+   * 'actions' column always goes to the card's footer.
+   */
+  mobile?: 'title' | 'hide' | 'full';
 }
 
+const cell = <T,>(col: Column<T>, row: T): ReactNode =>
+  col.render ? col.render(row) : (row as Record<string, unknown>)[col.key] as ReactNode;
+
+/** Buttons and links inside a clickable row must not also open the row. */
+const stop = (e: MouseEvent) => e.stopPropagation();
+
+/**
+ * A table on tablets and computers; on phones every row becomes a card
+ * (title, then label/value pairs, actions at the bottom), so nothing is
+ * hidden off-screen. Rows with {@code onRowClick} open on click or Enter.
+ */
 export function DataTable<T extends { id?: number | string }>({
   columns,
   data,
@@ -17,6 +34,7 @@ export function DataTable<T extends { id?: number | string }>({
   emptyDescription,
   emptyAction,
   onRowClick,
+  rowLabel,
 }: {
   columns: Column<T>[];
   data: T[];
@@ -26,48 +44,85 @@ export function DataTable<T extends { id?: number | string }>({
   emptyDescription?: string;
   emptyAction?: ReactNode;
   onRowClick?: (row: T) => void;
+  /** Accessible name of a clickable row, e.g. "فتح الفاتورة INV-1". */
+  rowLabel?: (row: T) => string;
 }) {
   if (loading) return <LoadingState />;
   if (error) return <ErrorState message={error} />;
   if (!data || data.length === 0)
     return <EmptyState title={emptyTitle ?? 'لا توجد بيانات'} description={emptyDescription} action={emptyAction} />;
 
+  const isActions = (c: Column<T>) => c.key === 'actions';
+  const titleCol = columns.find((c) => c.mobile === 'title') ?? columns.find((c) => !isActions(c) && c.mobile !== 'hide');
+  const actionsCol = columns.find(isActions);
+  // Full-width fields go last so the two-column grid above them stays even.
+  const bodyCols = columns.filter((c) => c !== titleCol && !isActions(c) && c.mobile !== 'hide')
+    .sort((a, b) => Number(a.mobile === 'full') - Number(b.mobile === 'full'));
+  // Table rows stay rows (focusable, Enter opens them); phone cards act as buttons.
+  const clickProps = (row: T, asButton: boolean) => onRowClick ? {
+    onClick: () => onRowClick(row),
+    onKeyDown: (e: KeyboardEvent) => {
+      if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) { e.preventDefault(); onRowClick(row); }
+    },
+    tabIndex: 0,
+    ...(asButton ? { role: 'button' as const } : {}),
+    'aria-label': rowLabel?.(row),
+  } : {};
+
   return (
-    <div className="border rounded-xl overflow-hidden bg-card">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-muted/50 border-b">
-              {columns.map((col) => (
-                <th
-                  key={col.key}
-                  className={`text-right font-semibold text-foreground px-4 py-3 whitespace-nowrap ${col.className ?? ''}`}
-                >
-                  {col.header}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.map((row, i) => (
-              <tr
-                key={row.id ?? i}
-                onClick={() => onRowClick?.(row)}
-                className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${
-                  onRowClick ? 'cursor-pointer' : ''
-                }`}
-              >
+    <>
+      {/* Tablets and computers */}
+      <div className="hidden md:block border rounded-xl overflow-hidden bg-card">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-muted/50 border-b">
                 {columns.map((col) => (
-                  <td key={col.key} className={`px-4 py-3 text-foreground ${col.className ?? ''}`}>
-                    {col.render ? col.render(row) : (row as Record<string, unknown>)[col.key] as ReactNode}
-                  </td>
+                  <th key={col.key} className={`text-right font-semibold text-foreground px-4 py-3 whitespace-nowrap ${col.className ?? ''}`}>
+                    {col.header}
+                  </th>
                 ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {data.map((row, i) => (
+                <tr key={row.id ?? i} {...clickProps(row, false)}
+                  className={`border-b last:border-0 hover:bg-muted/30 transition-colors ${onRowClick ? 'cursor-pointer focus-visible:outline-none focus-visible:bg-primary/5 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring' : ''}`}>
+                  {columns.map((col) => (
+                    <td key={col.key} onClick={isActions(col) ? stop : undefined} className={`px-4 py-3 text-foreground ${col.className ?? ''}`}>
+                      {cell(col, row)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+
+      {/* Phones: one card per row */}
+      <ul className="md:hidden space-y-2.5">
+        {data.map((row, i) => (
+          <li key={row.id ?? i} {...clickProps(row, true)}
+            className={`rounded-xl border bg-card p-3.5 ${onRowClick ? 'cursor-pointer active:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring' : ''}`}>
+            {titleCol && <div className="font-semibold text-foreground mb-2">{cell(titleCol, row)}</div>}
+            {bodyCols.length > 0 && (
+              <dl className="grid grid-cols-2 gap-x-3 gap-y-2 text-sm">
+                {bodyCols.map((col) => (
+                  <div key={col.key} className={`min-w-0 ${col.mobile === 'full' ? 'col-span-2' : ''}`}>
+                    <dt className="text-[11px] text-muted-foreground">{col.header}</dt>
+                    <dd className="text-foreground break-words">{cell(col, row)}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+            {actionsCol && (
+              <div onClick={stop} className="mt-3 pt-2.5 border-t flex justify-end">{cell(actionsCol, row)}</div>
+            )}
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 

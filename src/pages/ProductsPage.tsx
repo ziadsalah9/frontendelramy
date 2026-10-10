@@ -6,6 +6,8 @@ import { extractApiError } from '@/api/client';
 import type { Product, ProductType, ProductPriceUpdateInput } from '@/types';
 import { useProductTypeOptions } from '@/hooks/useProductTypes';
 import { TypeTabs } from '@/components/shared/TypeTabs';
+import { ColorSwatch } from '@/components/shared/ColorSwatch';
+import { useProductColors } from '@/hooks/useProductColors';
 import { inTypeTab, ALL_TYPES } from '@/utils/typeTabs';
 import { VariantsEditor } from '@/components/products/VariantsEditor';
 import { FormSection } from '@/components/products/FormSection';
@@ -48,13 +50,33 @@ const emptyForm: ProductForm = {
 
 
 /** Distinct non-empty values as small chips ("-" when none). */
-function Chips({ values }: { values: (string | null | undefined)[] }) {
-  const unique = [...new Set(values.filter((v): v is string => !!v && v.trim() !== ''))];
-  if (unique.length === 0) return <span className="text-muted-foreground">-</span>;
+const uniq = (values: (string | null | undefined)[]) => [...new Set(values.filter((v): v is string => !!v && v.trim() !== ''))];
+
+/** Colours (with their swatch) and sizes of a product, compact. */
+function VariantsSummary({ product, hexOf }: { product: Product; hexOf: (name: string) => string | null }) {
+  const colours = uniq(product.variants.map((v) => v.color));
+  const sizes = uniq(product.variants.map((v) => v.size));
+  if (colours.length === 0 && sizes.length === 0) return <span className="text-muted-foreground">بدون لون أو مقاس</span>;
   return (
-    <div className="flex flex-wrap gap-1 max-w-[220px]">
-      {unique.map((v) => <span key={v} className="px-1.5 py-0.5 rounded bg-muted text-xs">{v}</span>)}
+    <div className="flex flex-wrap items-center gap-1 max-w-[260px]">
+      {colours.map((c) => (
+        <span key={c} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-muted text-xs">
+          <ColorSwatch name={c} hex={hexOf(c)} className="w-2.5 h-2.5" />{c}
+        </span>
+      ))}
+      {sizes.map((z) => <span key={z} className="px-1.5 py-0.5 rounded border text-xs">{z}</span>)}
     </div>
+  );
+}
+
+/** Total stock, red when sold out and amber when at or under the minimum. */
+function StockCell({ product }: { product: Product }) {
+  if (product.quantity <= 0) return <Badge variant="destructive">نفد</Badge>;
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+      <span className={`font-semibold ${product.lowStock ? 'text-warning' : ''}`}>{product.quantity}</span>
+      {product.lowStock && <Badge variant="warning">منخفض</Badge>}
+    </span>
   );
 }
 
@@ -78,6 +100,7 @@ export default function ProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [viewing, setViewing] = useState<Product | null>(null);
   const { options: typeOptions } = useProductTypeOptions(editing?.itemType);
+  const { hexOf } = useProductColors();
   const [labelsFor, setLabelsFor] = useState<Product | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Product | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -286,13 +309,16 @@ export default function ProductsPage() {
     }
   };
 
-  // The table stays scannable: identity + selling price + actions. Cost,
-  // profit, stock, limits and status live in the details dialog (eye).
+  // The table stays scannable: identity, stock and selling price. Cost,
+  // profit, limits and the per colour/size stock live in the details (row click).
   const columns: Column<Product>[] = [
-    { key: 'name', header: 'الاسم', render: (p) => <span className="font-medium">{p.name}</span> },
+    {
+      key: 'name', header: 'الاسم',
+      render: (p) => <div><p className="font-medium">{p.name}</p><p className="text-xs text-muted-foreground"><span className="font-mono" dir="ltr">{p.code}</span></p></div>,
+    },
     { key: 'type', header: 'النوع', render: (p) => p.itemType ? <Badge variant="info">{p.itemType}</Badge> : '-' },
-    { key: 'color', header: 'اللون', render: (p) => <Chips values={p.variants.map((v) => v.color)} /> },
-    { key: 'size', header: 'المقاس', render: (p) => <Chips values={p.variants.map((v) => v.size)} /> },
+    { key: 'variants', header: 'الألوان والمقاسات', mobile: 'full', render: (p) => <VariantsSummary product={p} hexOf={hexOf} /> },
+    { key: 'stock', header: 'المخزون', render: (p) => <StockCell product={p} /> },
     {
       key: 'sellingPrice', header: 'سعر البيع',
       render: (p) => p.currentPrice
@@ -337,6 +363,8 @@ export default function ProductsPage() {
       <DataTable
         columns={columns}
         data={filtered}
+        onRowClick={setViewing}
+        rowLabel={(p) => `فتح المنتج ${p.name}`}
         loading={isLoading}
         error={queryError ? extractApiError(queryError).message : null}
         emptyTitle={search || typeTab !== ALL_TYPES ? 'لا توجد نتائج مطابقة' : 'لا توجد منتجات'}

@@ -9,6 +9,17 @@ export interface DashboardSummary {
   todaySalesCount: number;
   todaySalesTotal: number;
   recentSales: { id: number; invoiceNumber: string; customerName?: string | null; total: number; remaining: number; createdAt: string }[];
+  /** Admin only (null for employees). */
+  todayProfit: number | null;
+  /** What should be in the drawer now. */
+  expectedCash: number;
+  cashClosedToday: boolean;
+  /** Yesterday had sales but no cash closing. */
+  unclosedYesterday: boolean;
+  /** Unpaid installments due today or earlier. */
+  dueInstallmentsCount: number;
+  dueInstallmentsAmount: number;
+  last7Days: { date: string; count: number; total: number }[];
 }
 
 export const dashboardService = {

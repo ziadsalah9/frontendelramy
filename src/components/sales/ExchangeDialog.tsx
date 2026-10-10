@@ -94,7 +94,7 @@ export function ExchangeDialog({ invoice, open, onClose, onDone }: { invoice: Sa
     <Modal open={open} onClose={onClose} title={`استبدال من الفاتورة ${invoice.invoiceNumber}`} maxWidth="max-w-3xl" persistent busy={saving}>
       <div className="space-y-4">
         <section className="space-y-2">
-          <h4 className="text-sm font-semibold">١. ما يُرجعه العميل</h4>
+          <h4 className="text-sm font-semibold">1. ما يُرجعه العميل</h4>
           <div className="rounded-lg border divide-y">
             {invoice.items.map((i) => {
               const available = i.quantity - (i.returnedQuantity ?? 0);
@@ -116,7 +116,7 @@ export function ExchangeDialog({ invoice, open, onClose, onDone }: { invoice: Sa
         </section>
 
         <section className="space-y-2">
-          <h4 className="text-sm font-semibold">٢. الأصناف الجديدة</h4>
+          <h4 className="text-sm font-semibold">2. الأصناف الجديدة</h4>
           <VariantCombobox options={options} counted={new Map()} onPick={addLine} disabled={products.isLoading} />
           {lines.length > 0 && (
             <div className="rounded-lg border divide-y">

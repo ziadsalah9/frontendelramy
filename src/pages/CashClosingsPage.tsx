@@ -111,7 +111,7 @@ export default function CashClosingsPage() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="إغلاق الكاش نهاية اليوم" description="تسجيل عد الفئات المصرية (٥، ١٠، ٢٠، ٥٠، ١٠٠، ٢٠٠)" />
+      <PageHeader title="إغلاق الكاش نهاية اليوم" description="تسجيل عد الفئات المصرية (5، 10، 20، 50، 100، 200 جنيه)" />
 
       <ConfirmDialog
         open={confirmOpen}
@@ -207,16 +207,21 @@ export default function CashClosingsPage() {
               تم إغلاق هذا اليوم {existing.closedByName ? `بواسطة ${existing.closedByName}` : ''} {existing.createdAt ? `في ${formatDate(existing.createdAt)}` : ''}. أي حفظ جديد سيستبدل الإغلاق المسجل.
             </div>
           )}
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="p-4 border rounded-lg bg-card"><p className="text-xs text-muted-foreground mb-1">مبيعات الكاش (المتوقعة)</p><p className="text-2xl font-bold">{formatCurrency(cashSalesTotal)} ج.م</p><p className="text-xs text-muted-foreground mt-1">كاش المبيعات والتحصيل ناقص المرتجع والمصروفات المدفوعة نقداً</p></div>
-            <div className="p-4 border rounded-lg bg-card"><p className="text-xs text-muted-foreground mb-1">المجموع المعدود</p><p className="text-2xl font-bold">{formatCurrency(countedTotal)} ج.م</p></div>
-            <div className="p-4 border rounded-lg bg-card">
-              <p className="text-xs text-muted-foreground mb-1">الفرق</p>
-              <p className={`text-2xl font-bold ${difference === 0 ? 'text-success' : difference > 0 ? 'text-warning' : 'text-destructive'}`}>{difference > 0 ? '+' : ''}{formatCurrency(difference)} ج.م</p>
-              <p className="text-xs text-muted-foreground mt-1">{difference === 0 ? 'مطابق' : difference > 0 ? 'زيادة في الدرج' : 'عجز في الدرج'}</p>
+          <div className="grid grid-cols-3 gap-2 sm:gap-4">
+            <div className="p-3 sm:p-4 border rounded-lg bg-card">
+              <p className="text-[11px] sm:text-xs text-muted-foreground mb-1">المتوقع في الدرج</p>
+              <p className="text-base sm:text-2xl font-bold">{formatCurrency(cashSalesTotal)}<span className="text-xs sm:text-base font-medium"> ج.م</span></p>
+              <p className="hidden sm:block text-xs text-muted-foreground mt-1">كاش المبيعات والتحصيل ناقص المرتجع والمصروفات المدفوعة نقداً</p>
+            </div>
+            <div className="p-3 sm:p-4 border rounded-lg bg-card">
+              <p className="text-[11px] sm:text-xs text-muted-foreground mb-1">المعدود</p>
+              <p className="text-base sm:text-2xl font-bold">{formatCurrency(countedTotal)}<span className="text-xs sm:text-base font-medium"> ج.م</span></p>
+            </div>
+            <div className={`p-3 sm:p-4 border rounded-lg ${difference === 0 ? 'bg-success/5 border-success/30' : difference > 0 ? 'bg-warning/5 border-warning/30' : 'bg-destructive/5 border-destructive/30'}`}>
+              <p className="text-[11px] sm:text-xs text-muted-foreground mb-1">{difference === 0 ? 'مطابق' : difference > 0 ? 'زيادة' : 'عجز'}</p>
+              <p className={`text-base sm:text-2xl font-bold ${difference === 0 ? 'text-success' : difference > 0 ? 'text-warning' : 'text-destructive'}`} dir="ltr">{difference > 0 ? '+' : ''}{formatCurrency(difference)}</p>
             </div>
           </div>
-          {summary.dayProfit && <DayProfitPanel profit={summary.dayProfit} drawerDifference={difference} counted={countedTotal > 0} />}
           <div className="border rounded-lg bg-card p-4">
             <h3 className="font-semibold mb-4 flex items-center gap-2"><Calculator className="w-4 h-4" /> عد الفئات</h3>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -241,6 +246,7 @@ export default function CashClosingsPage() {
               ))}
             </div>
           </div>
+          {summary.dayProfit && <DayProfitPanel profit={summary.dayProfit} drawerDifference={difference} counted={countedTotal > 0} />}
           <div className="space-y-2">
             <label htmlFor="closing-notes" className="block text-sm font-medium">ملاحظات</label>
             <textarea id="closing-notes" disabled={readOnly} value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} maxLength={MAX_NOTES} className="w-full px-3 py-2 border rounded-lg bg-background" placeholder="مثال: سبب العجز أو الزيادة..." />

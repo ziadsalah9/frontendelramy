@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { Plus, Eye } from 'lucide-react';
 import { salesInvoicesService } from '@/api/salesInvoices';
@@ -17,6 +18,14 @@ import { DateRangeFilter } from '@/components/shared/DateRangeFilter';
 export default function SalesInvoicesPage() {
   const [search, setSearch] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
+  // "بيع جديد" / F2 from any page lands here with ?new=1.
+  const [params, setParams] = useSearchParams();
+  useEffect(() => {
+    if (params.get('new') === '1') {
+      setModalOpen(true);
+      setParams((p) => { p.delete('new'); return p; }, { replace: true });
+    }
+  }, [params, setParams]);
   const [viewing, setViewing] = useState<SalesInvoice | null>(null);
 
   // One period at a time (this month by default) instead of all history.
@@ -63,6 +72,8 @@ export default function SalesInvoicesPage() {
       <DataTable
         columns={columns}
         data={filtered}
+        onRowClick={setViewing}
+        rowLabel={(i) => `فتح الفاتورة ${i.invoiceNumber}`}
         loading={isLoading}
         error={queryError ? extractApiError(queryError).message : null}
         emptyTitle={search ? 'لا توجد نتائج مطابقة' : 'لا توجد فواتير بيع'}

@@ -234,6 +234,8 @@ export default function CustomersPage() {
       <DataTable
         columns={columns}
         data={filtered}
+        onRowClick={setViewing}
+        rowLabel={(c) => `فتح العميل ${c.name}`}
         loading={isLoading}
         error={queryError ? extractApiError(queryError).message : null}
         emptyTitle={search ? 'لا توجد نتائج مطابقة' : 'لا يوجد عملاء'}

@@ -323,6 +323,7 @@ export default function ReceiptsPage() {
       <DataTable
         columns={columns}
         data={visible}
+        onRowClick={setViewing}
         loading={loading}
         error={allFailed ? extractApiError(sales.error ?? purchases.error ?? closings.error).message : null}
         emptyTitle="لا توجد إيصالات مطابقة"

@@ -246,6 +246,8 @@ export default function PurchaseInvoicesPage() {
       <DataTable
         columns={columns}
         data={filtered}
+        onRowClick={setViewing}
+        rowLabel={(i) => `فتح فاتورة الشراء ${i.invoiceNumber}`}
         loading={isLoading}
         error={queryError ? extractApiError(queryError).message : null}
         emptyTitle={search ? 'لا توجد نتائج مطابقة' : 'لا توجد فواتير شراء'}

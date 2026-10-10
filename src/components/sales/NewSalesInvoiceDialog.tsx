@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Plus, X } from 'lucide-react';
+import { Plus, ScanBarcode, X } from 'lucide-react';
 import { salesInvoicesService } from '@/api/salesInvoices';
 import { productsService } from '@/api/products';
 import { customersService } from '@/api/customers';
 import { extractApiError } from '@/api/client';
 import type { SalesInvoice, PaymentMethod } from '@/types';
 import { PAYMENT_METHODS } from '@/types';
-import { Modal, FormInput, FormSelect, FormTextarea, FormError, SubmitButton } from '@/components/shared/Modal';
+import { Modal, FormInput, FormSelect, FormTextarea, FormError } from '@/components/shared/Modal';
 import { formatCurrency, todayLocalISO } from '@/utils/format';
 import { percentOf } from '@/utils/pricing';
 import {
@@ -415,19 +415,23 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
 
         <div>
           <div className="flex items-center justify-between mb-2">
-            <label className="text-sm font-medium text-foreground">المنتجات</label>
+            <label htmlFor="sale-scan" className="text-sm font-medium text-foreground">المنتجات</label>
+            <button type="button" onClick={addItem} disabled={!branchIdNum} className="flex items-center gap-1 text-sm text-primary hover:underline disabled:opacity-50 disabled:no-underline"><Plus className="w-4 h-4" /> إضافة يدوياً</button>
+          </div>
+          {/* Scanning is how most items are added: the widest, most visible field. */}
+          <div className="relative mb-3">
+            <ScanBarcode className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-primary pointer-events-none" />
             <input
+              id="sale-scan"
               type="text"
               value={scanCode}
               onChange={(e) => setScanCode(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); void addByCode(); } }}
               placeholder={scanning ? 'جاري البحث...' : 'امسح الباركود أو اكتب الكود ثم Enter'}
-              aria-label="إضافة بالكود أو الباركود"
               disabled={!branchIdNum || scanning}
-              className="flex-1 max-w-xs mx-3 h-9 px-3 rounded-lg border border-input bg-background text-sm"
-              dir="ltr"
+              autoComplete="off"
+              className="w-full h-11 pr-11 pl-3 rounded-lg border-2 border-primary/30 bg-primary/5 text-sm placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
             />
-            <button type="button" onClick={addItem} disabled={!branchIdNum} className="flex items-center gap-1 text-sm text-primary hover:underline disabled:opacity-50 disabled:no-underline"><Plus className="w-4 h-4" /> إضافة منتج</button>
           </div>
 
           {!branchIdNum ? (
@@ -548,13 +552,6 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
           </div>
         )}
 
-        <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
-          <div className="text-sm text-muted-foreground">
-            إجمالي البنود: <span className="font-medium text-foreground">{formatCurrency(subtotal)} ج.م</span>
-            {invoiceDiscount > 0 && <> · خصم الفاتورة{form.discountMode === 'percent' ? ` (${invoicePercent}%)` : ''}: <span className="font-medium text-foreground">{formatCurrency(invoiceDiscount)} ج.م</span></>}
-          </div>
-          <div className="text-lg font-bold text-primary">الإجمالي: {formatCurrency(total)} ج.م</div>
-        </div>
         {form.paidTouched && (
           <button type="button" onClick={() => setForm({ ...form, paid: '', paidTouched: false })} className="text-xs text-primary hover:underline">
             اجعل المدفوع = الإجمالي
@@ -601,8 +598,24 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
 
         <p className="text-xs text-muted-foreground">الأسعار تُحسب من سعر البيع الحالي على الخادم، ويتم تسجيل الكاشير تلقائياً من حسابك.</p>
 
-        <FormError message={error} />
-        <SubmitButton loading={loading} label="إنشاء الفاتورة" />
+        {/* Pinned to the bottom of the window: the total and the button are always in view. */}
+        <div className="sticky bottom-0 z-10 -mx-6 -mb-6 px-6 pt-3 pb-4 bg-card border-t shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.12)] space-y-2">
+          <FormError message={error} />
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground">
+                البنود {formatCurrency(subtotal)}
+                {invoiceDiscount > 0 && <> · خصم{form.discountMode === 'percent' ? ` ${invoicePercent}%` : ''} {formatCurrency(invoiceDiscount)}</>}
+                {remaining > 0 && <> · <span className="text-destructive">متبقي {formatCurrency(remaining)}</span></>}
+              </p>
+              <p className="text-xl font-bold text-primary">الإجمالي {formatCurrency(total)} ج.م</p>
+            </div>
+            <button type="submit" disabled={loading}
+              className="h-11 px-6 rounded-lg bg-primary text-white font-semibold text-sm hover:bg-primary/90 transition-colors disabled:opacity-50">
+              {loading ? 'جاري الحفظ...' : 'إنشاء الفاتورة'}
+            </button>
+          </div>
+        </div>
       </form>
     </Modal>
   );
