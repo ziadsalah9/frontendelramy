@@ -6,6 +6,8 @@ import { productDraftsService } from '@/api/productDrafts';
 import { extractApiError } from '@/api/client';
 import type { ProductDraft, ProductDraftInput, ProductType } from '@/types';
 import { useProductTypeOptions } from '@/hooks/useProductTypes';
+import { TypeTabs } from '@/components/shared/TypeTabs';
+import { inTypeTab, ALL_TYPES } from '@/utils/typeTabs';
 import { PageHeader, ConfirmDialog } from '@/components/shared/States';
 import { DataTable, SearchInput, ActionButton, Badge, type Column } from '@/components/shared/DataTable';
 import { Modal, FormInput, FormSelect, FormError } from '@/components/shared/Modal';
@@ -86,6 +88,7 @@ const DRAFT_KEYS = [['product-drafts'], ['product-drafts-count']] as const;
  */
 export default function ProductDraftsPage() {
   const queryClient = useQueryClient();
+  const [typeTab, setTypeTab] = useState(ALL_TYPES);
   const [search, setSearch] = useState('');
   const [editing, setEditing] = useState<ProductDraft | null>(null);
   const [form, setForm] = useState<DraftForm | null>(null);
@@ -98,10 +101,11 @@ export default function ProductDraftsPage() {
 
   const { data: drafts, isLoading, error: queryError } = useQuery({ queryKey: ['product-drafts'], queryFn: productDraftsService.getAll });
 
-  const filtered = (drafts ?? []).filter(
+  const searched = (drafts ?? []).filter(
     (d) => matches(d.name, search) || matches(d.itemType, search) || matches(d.sourceFile, search)
       || d.variants.some((v) => matches(v.color, search) || matches(v.size, search)),
   );
+  const filtered = searched.filter((d) => inTypeTab(typeTab, d.itemType));
 
   const refresh = () => DRAFT_KEYS.forEach((k) => queryClient.invalidateQueries({ queryKey: [...k] }));
 
@@ -242,7 +246,8 @@ export default function ProductDraftsPage() {
         description="منتجات من ملفات Excel تنقصها بيانات. لا تظهر في البيع أو المخزون حتى يتم إكمالها وإضافتها."
       />
 
-      <div className="mb-4"><SearchInput value={search} onChange={setSearch} placeholder="بحث بالاسم أو النوع أو اسم الملف..." /></div>
+      <div className="mb-3"><SearchInput value={search} onChange={setSearch} placeholder="بحث بالاسم أو النوع أو اسم الملف..." /></div>
+      <div className="mb-4"><TypeTabs types={searched.map((d) => d.itemType)} value={typeTab} onChange={setTypeTab} idPrefix="drafts-type" /></div>
 
       <DataTable
         columns={columns}

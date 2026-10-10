@@ -5,6 +5,8 @@ import { productsService, productPricesService } from '@/api/products';
 import { extractApiError } from '@/api/client';
 import type { Product, ProductType, ProductPriceUpdateInput } from '@/types';
 import { useProductTypeOptions } from '@/hooks/useProductTypes';
+import { TypeTabs } from '@/components/shared/TypeTabs';
+import { inTypeTab, ALL_TYPES } from '@/utils/typeTabs';
 import { VariantsEditor } from '@/components/products/VariantsEditor';
 import { FormSection } from '@/components/products/FormSection';
 import { LabelsDialog } from '@/components/products/LabelsDialog';
@@ -71,6 +73,7 @@ export default function ProductsPage() {
   // POST/PUT/DELETE /api/products and the price endpoints are ADMIN-only.
   const { isAdmin } = useAuth();
   const [search, setSearch] = useState('');
+  const [typeTab, setTypeTab] = useState(ALL_TYPES);
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [viewing, setViewing] = useState<Product | null>(null);
@@ -91,13 +94,15 @@ export default function ProductsPage() {
 
   const { data: products, isLoading, error: queryError } = useQuery({ queryKey: ['products'], queryFn: productsService.getAll });
 
-  const filtered = (products ?? []).filter((p) =>
+  // Search first, then the type tab, so each tab's count reflects the search.
+  const searched = (products ?? []).filter((p) =>
     matches(p.name, search) ||
     matches(p.code, search) ||
     matches(p.model, search) ||
     matches(p.itemType, search) ||
     p.variants.some((v) => matches(v.code, search) || matches(v.barcode, search) || matches(v.color, search) || matches(v.size, search))
   );
+  const filtered = searched.filter((p) => inTypeTab(typeTab, p.itemType));
 
   const openCreate = () => {
     setEditing(null);
@@ -326,14 +331,15 @@ export default function ProductsPage() {
 
       {isAdmin && <ProductImportDialog open={importOpen} onClose={() => setImportOpen(false)} />}
 
-      <div className="mb-4"><SearchInput value={search} onChange={setSearch} placeholder="بحث بالاسم أو الكود أو النوع أو اللون..." /></div>
+      <div className="mb-3"><SearchInput value={search} onChange={setSearch} placeholder="بحث بالاسم أو الكود أو النوع أو اللون..." /></div>
+      <div className="mb-4"><TypeTabs types={searched.map((p) => p.itemType)} value={typeTab} onChange={setTypeTab} idPrefix="products-type" /></div>
 
       <DataTable
         columns={columns}
         data={filtered}
         loading={isLoading}
         error={queryError ? extractApiError(queryError).message : null}
-        emptyTitle={search ? 'لا توجد نتائج مطابقة' : 'لا توجد منتجات'}
+        emptyTitle={search || typeTab !== ALL_TYPES ? 'لا توجد نتائج مطابقة' : 'لا توجد منتجات'}
         emptyDescription={search ? 'جرّب كلمة بحث أخرى' : isAdmin ? 'ابدأ بإضافة منتج جديد' : undefined}
       />
 
