@@ -9,6 +9,7 @@ import type { SalesInvoice, PaymentMethod } from '@/types';
 import { PAYMENT_METHODS } from '@/types';
 import { Modal, FormInput, FormSelect, FormTextarea, FormError, SubmitButton } from '@/components/shared/Modal';
 import { formatCurrency, todayLocalISO } from '@/utils/format';
+import { percentOf } from '@/utils/pricing';
 import {
   sanitizeDecimal, sanitizeInt, isValidPhone,
   MAX_NAME, MAX_ADDRESS, MAX_NOTES,
@@ -41,7 +42,10 @@ interface FormState {
   customerPhone: string;
   customerAddress: string;
   paymentMethod: PaymentMethod;
+  /** Invoice discount: amount in EGP and/or percent of the items total; the last one typed wins. */
   discount: string;
+  discountPercent: string;
+  discountMode: 'percent' | 'amount';
   /** Only used once the cashier edits it; until then paid follows the total. */
   paid: string;
   paidTouched: boolean;
@@ -75,6 +79,8 @@ const makeEmptyForm = (): FormState => ({
   customerAddress: '',
   paymentMethod: 'CASH',
   discount: '0',
+  discountPercent: '0',
+  discountMode: 'amount',
   paid: '',
   cashAmount: '',
   installment: { enabled: false, months: '6', markupPercent: '0', firstDueDate: nextMonthISO() },
@@ -241,7 +247,12 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
 
   const lineTotal = (item: FormItem) => price(item.productId) * (Number(item.quantity) || 0) - (Number(item.discount) || 0);
   const subtotal = round2(form.items.reduce((sum, item) => sum + (item.productId ? lineTotal(item) : 0), 0));
-  const invoiceDiscount = Number(form.discount) || 0;
+  // In percent mode the amount follows the items total as lines change.
+  const invoicePercent = Math.min(100, Math.max(0, Number(form.discountPercent) || 0));
+  const invoiceDiscount = form.discountMode === 'percent' ? percentOf(subtotal, invoicePercent) : Number(form.discount) || 0;
+  const shownDiscountPercent = form.discountMode === 'percent' ? form.discountPercent
+    : subtotal > 0 ? String(round2((invoiceDiscount / subtotal) * 100)) : '0';
+  const shownDiscountAmount = form.discountMode === 'percent' ? String(invoiceDiscount) : form.discount;
   const total = Math.max(0, round2(subtotal - invoiceDiscount));
   const paidValue = form.paidTouched ? form.paid : total.toString();
   const paid = Number(paidValue) || 0;
@@ -361,6 +372,7 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
           .filter((i) => i.productId)
           .map((i) => ({ variantId: Number(i.variantId), quantity: Number(i.quantity), discount: Number(i.discount) || 0 })),
         discount: invoiceDiscount,
+        discountPercent: form.discountMode === 'percent' && invoicePercent > 0 ? invoicePercent : undefined,
         paid,
         cashAmount: form.paymentMethod === 'MIXED' ? Number(form.cashAmount) : undefined,
         installment: inst.enabled
@@ -497,7 +509,24 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
         </div>
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <FormInput label="خصم الفاتورة (ج.م)" type="text" inputMode="decimal" value={form.discount} onChange={(v) => setForm({ ...form, discount: sanitizeDecimal(v) })} dir="ltr" error={fieldErrors.discount} />
+          <div className="space-y-2">
+            <span className="block text-sm font-medium text-foreground">خصم الفاتورة</span>
+            <div className="flex gap-1.5" dir="ltr">
+              <div className="relative w-[42%]">
+                <input type="text" inputMode="decimal" value={shownDiscountPercent} aria-label="نسبة خصم الفاتورة"
+                  onChange={(e) => setForm({ ...form, discountPercent: sanitizeDecimal(e.target.value).slice(0, 6), discountMode: 'percent' })}
+                  className={`w-full h-10 pl-2 pr-6 rounded-lg border bg-background text-sm ${form.discountMode === 'percent' ? 'border-primary ring-1 ring-primary/30' : 'border-input'}`} />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">%</span>
+              </div>
+              <div className="relative flex-1">
+                <input type="text" inputMode="decimal" value={shownDiscountAmount} aria-label="قيمة خصم الفاتورة"
+                  onChange={(e) => setForm({ ...form, discount: sanitizeDecimal(e.target.value), discountMode: 'amount' })}
+                  className={`w-full h-10 pl-2 pr-9 rounded-lg border bg-background text-sm ${form.discountMode === 'amount' && invoiceDiscount > 0 ? 'border-primary ring-1 ring-primary/30' : 'border-input'}`} />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">ج.م</span>
+              </div>
+            </div>
+            {fieldErrors.discount && <p className="text-xs text-destructive">{fieldErrors.discount}</p>}
+          </div>
           <FormSelect label="طريقة الدفع" value={form.paymentMethod} onChange={(v) => setForm({ ...form, paymentMethod: v as PaymentMethod })} options={PAYMENT_METHODS.map((m) => ({ value: m.value, label: m.label }))} />
           <FormInput label="المدفوع (ج.م)" type="text" inputMode="decimal" value={paidValue} onChange={(v) => setForm({ ...form, paid: sanitizeDecimal(v), paidTouched: true })} dir="ltr" error={fieldErrors.paid} />
           <div className="space-y-2">
@@ -522,7 +551,7 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
         <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-lg bg-primary/5 border border-primary/20">
           <div className="text-sm text-muted-foreground">
             إجمالي البنود: <span className="font-medium text-foreground">{formatCurrency(subtotal)} ج.م</span>
-            {invoiceDiscount > 0 && <> · خصم الفاتورة: <span className="font-medium text-foreground">{formatCurrency(invoiceDiscount)} ج.م</span></>}
+            {invoiceDiscount > 0 && <> · خصم الفاتورة{form.discountMode === 'percent' ? ` (${invoicePercent}%)` : ''}: <span className="font-medium text-foreground">{formatCurrency(invoiceDiscount)} ج.م</span></>}
           </div>
           <div className="text-lg font-bold text-primary">الإجمالي: {formatCurrency(total)} ج.م</div>
         </div>

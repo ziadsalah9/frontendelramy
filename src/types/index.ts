@@ -300,6 +300,8 @@ export interface SalesInvoice {
   cashAmount?: number | null;
   /** Value already returned. */
   returnedTotal?: number;
+  /** The invoice discount as entered in percent; null when entered as an amount. */
+  discountPercent?: number | null;
 }
 
 export interface SalesInvoiceCreateInput {
@@ -314,6 +316,8 @@ export interface SalesInvoiceCreateInput {
   cashAmount?: number;
   /** Sell on installments (ADMIN): what is not paid now becomes a monthly plan. */
   installment?: { months: number; markupPercent: number; firstDueDate?: string };
+  /** Invoice discount as % of the items total; the server computes the amount from it. */
+  discountPercent?: number;
 }
 
 export interface User {

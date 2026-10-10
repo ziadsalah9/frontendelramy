@@ -3,6 +3,19 @@
 
 export const round2 = (n: number) => Math.round(n * 100) / 100;
 
+/**
+ * `percent`% of `amount`, to the piastre, rounded half up - exactly like
+ * the server (SalesInvoiceServiceImpl.percentOf). Done in whole piastres
+ * and hundredths of a percent, so floating point cannot shift the result
+ * (7.3% of 123.45 is 9.01 here and there).
+ */
+export const percentOf = (amount: number, percent: number) => {
+  const piastres = Math.round(amount * 100);
+  const hundredths = Math.round(percent * 100);
+  if (piastres <= 0 || hundredths <= 0) return 0;
+  return Math.floor((piastres * hundredths + 5000) / 10000) / 100;
+};
+
 export type PriceAnchor = 'profit' | 'selling';
 
 export interface PriceFields {

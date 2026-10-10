@@ -97,7 +97,7 @@ export function printReceipt(invoice: SalesInvoice, store?: StoreSettings | null
     <table><thead><tr><th>الصنف</th><th class="num">كمية</th><th class="num">سعر</th><th class="num">إجمالي</th></tr></thead><tbody>${rows}</tbody></table>
     <hr>
     ${line('إجمالي الأصناف', formatCurrency(subtotal))}
-    ${invoice.discount > 0 ? line('خصم الفاتورة', formatCurrency(invoice.discount)) : ''}
+    ${invoice.discount > 0 ? line(invoice.discountPercent != null ? `خصم الفاتورة (${invoice.discountPercent}%)` : 'خصم الفاتورة', formatCurrency(invoice.discount)) : ''}
     ${line('الإجمالي', `${formatCurrency(invoice.total)} ج.م`, true)}
     ${line('المدفوع', `${formatCurrency(invoice.paid)} (${esc(getPaymentMethodLabel(invoice.paymentMethod))})`)}
     ${(invoice.remaining ?? 0) > 0 ? line('المتبقي', `${formatCurrency(invoice.remaining)} ج.م`, true) : ''}

@@ -60,7 +60,7 @@ export function SalesInvoiceDetails({ invoice: initial, actions }: { invoice: Sa
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">خصم الفاتورة</p><p className="font-bold">{formatCurrency(invoice.discount)} ج.م</p></div>
+        <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">خصم الفاتورة{invoice.discountPercent != null && ` (${invoice.discountPercent}%)`}</p><p className="font-bold">{formatCurrency(invoice.discount)} ج.م</p></div>
         <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">الإجمالي</p><p className="font-bold">{formatCurrency(invoice.total)} ج.م</p></div>
         <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">المدفوع</p><p className="text-success font-bold">{formatCurrency(invoice.paid)} ج.م</p></div>
         <div className="p-3 rounded-lg border"><p className="text-xs text-muted-foreground mb-1">المتبقي</p><p className={(invoice.remaining ?? 0) > 0 ? 'text-destructive font-bold' : 'font-bold'}>{formatCurrency(invoice.remaining)} ج.م</p></div>

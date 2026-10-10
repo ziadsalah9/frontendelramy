@@ -374,7 +374,7 @@ export default function CustomersPage() {
                             ))}
                             <div className="flex flex-wrap justify-between gap-2 pt-2 border-t text-xs text-muted-foreground">
                               <span>الكاشير: {inv.cashierName ?? '-'}</span>
-                              {inv.discount > 0 && <span>خصم الفاتورة: {formatCurrency(inv.discount)} ج.م</span>}
+                              {inv.discount > 0 && <span>خصم الفاتورة{inv.discountPercent != null && ` (${inv.discountPercent}%)`}: {formatCurrency(inv.discount)} ج.م</span>}
                               <span>المدفوع: <span className="text-success font-medium">{formatCurrency(inv.paid)} ج.م</span></span>
                             </div>
                             {inv.notes && <p className="text-xs text-muted-foreground">ملاحظات: {inv.notes}</p>}
