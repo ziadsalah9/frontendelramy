@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Store, Percent } from 'lucide-react';
+import { Store, Percent, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { settingsService } from '@/api/settings';
 import { extractApiError } from '@/api/client';
@@ -9,11 +9,11 @@ import { PageHeader, LoadingState, ErrorState } from '@/components/shared/States
 import { FormError, FormInput, FormTextarea, SubmitButton } from '@/components/shared/Modal';
 import { FormSection } from '@/components/products/FormSection';
 import { useStoreSettings } from '@/hooks/useStoreSettings';
-import { sanitizeDecimal } from '@/utils/validation';
+import { sanitizeDecimal, sanitizeInt } from '@/utils/validation';
 import { ProductTypesSection } from '@/components/settings/ProductTypesSection';
 import { ProductColorsSection } from '@/components/settings/ProductColorsSection';
 
-type Form = { storeName: string; phone: string; address: string; receiptFooter: string; employeeMaxDiscountPercent: string };
+type Form = { storeName: string; phone: string; address: string; receiptFooter: string; employeeMaxDiscountPercent: string; returnPolicyDays: string };
 
 const toForm = (s: StoreSettings): Form => ({
   storeName: s.storeName,
@@ -21,6 +21,7 @@ const toForm = (s: StoreSettings): Form => ({
   address: s.address ?? '',
   receiptFooter: s.receiptFooter ?? '',
   employeeMaxDiscountPercent: String(s.employeeMaxDiscountPercent),
+  returnPolicyDays: String(s.returnPolicyDays ?? 7),
 });
 
 /** Store details printed on receipts, and the employee discount limit (ADMIN). */
@@ -41,6 +42,8 @@ export default function SettingsPage() {
     const pct = Number(form.employeeMaxDiscountPercent);
     if (!form.storeName.trim()) return setError('اسم المحل مطلوب');
     if (form.employeeMaxDiscountPercent === '' || pct < 0 || pct > 100) return setError('حد خصم الموظف بين 0 و 100');
+    const days = Number(form.returnPolicyDays);
+    if (form.returnPolicyDays === '' || days < 0 || days > 365) return setError('مدة الاسترجاع بين 0 و 365 يوماً (0 = بدون سياسة)');
     setSaving(true);
     setError('');
     try {
@@ -50,6 +53,7 @@ export default function SettingsPage() {
         address: form.address.trim() || null,
         receiptFooter: form.receiptFooter.trim() || null,
         employeeMaxDiscountPercent: pct,
+        returnPolicyDays: days,
       });
       queryClient.setQueryData(['store-settings'], saved);
       toast.success('تم حفظ الإعدادات');
@@ -74,7 +78,14 @@ export default function SettingsPage() {
             <FormInput label="الهاتف" value={form.phone} onChange={(v) => setForm({ ...form, phone: v })} maxLength={100} dir="ltr" placeholder="010xxxxxxxx" />
           </div>
           <FormInput label="العنوان" value={form.address} onChange={(v) => setForm({ ...form, address: v })} maxLength={300} />
-          <FormTextarea label="تذييل الإيصال" value={form.receiptFooter} onChange={(v) => setForm({ ...form, receiptFooter: v })} maxLength={300} placeholder="مثال: شكراً لزيارتكم - الاستبدال خلال 14 يوماً" />
+          <FormTextarea label="تذييل الإيصال" value={form.receiptFooter} onChange={(v) => setForm({ ...form, receiptFooter: v })} maxLength={300} placeholder="مثال: شكراً لزيارتكم" />
+        </FormSection>
+        <FormSection icon={Undo2} title="الاسترجاع والاستبدال" hint="تُطبع سياسة الاسترجاع والاستبدال أسفل إيصال البيع (المنتج غير مستخدم وبحالته الأصلية وبدون عيوب، مع إحضار الإيصال).">
+          <div className="max-w-xs">
+            <FormInput label="المدة من تاريخ الشراء (يوم)" type="text" inputMode="numeric" value={form.returnPolicyDays}
+              onChange={(v) => setForm({ ...form, returnPolicyDays: sanitizeInt(v).slice(0, 3) })} required dir="ltr" />
+            <p className="mt-1 text-xs text-muted-foreground">اكتب 0 لإخفاء السياسة من الإيصال.</p>
+          </div>
         </FormSection>
         <FormSection icon={Percent} title="الخصم" hint="أقصى خصم يمكن للموظف إعطاؤه في الفاتورة (خصم البنود + خصم الفاتورة) كنسبة من إجمالي الفاتورة قبل الخصم. المدير بدون حد.">
           <div className="max-w-xs">

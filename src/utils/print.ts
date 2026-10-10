@@ -23,7 +23,12 @@ export function barcodeSvg(text: string, opts: { height?: number; width?: number
   return svg.outerHTML;
 }
 
-function printHtml(html: string) {
+/**
+ * @param fitReceipt  Roll paper: browsers ignore `@page { size: 80mm auto }`
+ *   (they fall back to A4/Letter), so the rendered height is measured and
+ *   the page is set to exactly 80mm x that height.
+ */
+function printHtml(html: string, fitReceipt = false) {
   const frame = document.createElement('iframe');
   frame.setAttribute('aria-hidden', 'true');
   frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';
@@ -33,6 +38,12 @@ function printHtml(html: string) {
   doc.write(html);
   doc.close();
   const go = () => {
+    if (fitReceipt) {
+      const heightPx = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
+      const style = doc.createElement('style');
+      style.textContent = `@page { size: 80mm ${Math.ceil((heightPx * 25.4) / 96) + 2}mm; margin: 0; }`;
+      doc.head.appendChild(style);
+    }
     frame.contentWindow!.focus();
     frame.contentWindow!.print();
     // Give the print dialog time to read the page before removing it.
@@ -48,7 +59,33 @@ const BASE_CSS = `
   svg { display: block; margin: 0 auto; max-width: 100%; }
 `;
 
-/** Customer receipt for an 80mm thermal printer. */
+/** "10 أكتوبر 2026" - the date only, Western digits. */
+const longDate = (d: Date) => new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'long', year: 'numeric' }).format(d);
+
+/**
+ * The return / exchange terms printed at the bottom of the receipt: how
+ * many days from the purchase, the last day, and the conditions. Empty
+ * when the shop set 0 days.
+ */
+export function returnPolicyHtml(purchasedAt: string, days: number): string {
+  if (!Number.isFinite(days) || days <= 0) return '';
+  const bought = new Date(purchasedAt);
+  const until = new Date(bought);
+  until.setDate(until.getDate() + days);
+  const lastDay = Number.isNaN(until.getTime()) ? '' : `<div class="policy-until">آخر موعد للاسترجاع أو الاستبدال: <b>${esc(longDate(until))}</b></div>`;
+  return `<div class="policy">
+      <div class="policy-title">سياسة الاسترجاع والاستبدال</div>
+      <p>يحق للعميل الاسترجاع أو الاستبدال خلال <b>${days} ${days === 1 ? 'يوم' : days <= 10 ? 'أيام' : 'يوماً'}</b> من تاريخ الشراء، بالشروط التالية:</p>
+      <ul>
+        <li>أن يكون المنتج غير مستخدم.</li>
+        <li>أن يكون بحالته الأصلية وبدون أي عيوب.</li>
+        <li>أن يحضر العميل الإيصال.</li>
+      </ul>
+      ${lastDay}
+    </div>`;
+}
+
+/** Customer receipt for an 80mm thermal printer (72mm of printable width). */
 export function printReceipt(invoice: SalesInvoice, store?: StoreSettings | null) {
   const subtotal = invoice.items.reduce((s, i) => s + (i.total ?? 0), 0);
   const rows = invoice.items
@@ -67,9 +104,19 @@ export function printReceipt(invoice: SalesInvoice, store?: StoreSettings | null
 
   printHtml(`<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><title>${esc(invoice.invoiceNumber)}</title>
   <style>
-    @page { size: 80mm auto; margin: 0; }
+    /* 80mm roll: the printer prints about 72mm, so 4mm stays empty each side.
+       The exact page height is added by printHtml once the content is laid out. */
+    @page { size: 80mm 297mm; margin: 0; }
     ${BASE_CSS}
-    body { width: 80mm; padding: 4mm 4mm 8mm; font-size: 12px; }
+    html { width: 80mm; }
+    body { width: 80mm; padding: 4mm 4mm 10mm; font-size: 12px; line-height: 1.35; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    tr, .line, .policy { break-inside: avoid; page-break-inside: avoid; }
+    td.name { word-break: break-word; overflow-wrap: anywhere; }
+    .policy { border: 1px dashed #000; border-radius: 2mm; padding: 2mm 2.5mm; margin: 6px 0; font-size: 10.5px; line-height: 1.5; }
+    .policy-title { text-align: center; font-weight: bold; font-size: 11.5px; margin-bottom: 2px; }
+    .policy p { margin: 0 0 2px; }
+    .policy ul { margin: 0; padding: 0 12px 0 0; }
+    .policy-until { margin-top: 3px; text-align: center; }
     .center { text-align: center; }
     h1 { font-size: 17px; margin: 0 0 2px; }
     .muted { font-size: 11px; }
@@ -104,8 +151,9 @@ export function printReceipt(invoice: SalesInvoice, store?: StoreSettings | null
     ${(invoice.returnedTotal ?? 0) > 0 ? line('مرتجعات', formatCurrency(invoice.returnedTotal)) : ''}
     <hr>
     ${barcodeSvg(invoice.invoiceNumber, { height: 36, width: 1.3, fontSize: 11 })}
+    ${returnPolicyHtml(invoice.createdAt, store?.returnPolicyDays ?? 7)}
     ${store?.receiptFooter ? `<p class="center muted">${esc(store.receiptFooter)}</p>` : ''}
-  </body></html>`);
+  </body></html>`, true);
 }
 
 export interface LabelItem {

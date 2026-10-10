@@ -514,6 +514,8 @@ export interface StoreSettings {
   receiptFooter?: string | null;
   /** Largest discount an employee may give, % of the invoice before discounts. */
   employeeMaxDiscountPercent: number;
+  /** Days after the purchase to return or exchange, printed on the receipt; 0 = no policy. */
+  returnPolicyDays?: number;
 }
 
 // ---------------------------------------------------------------- customer account & returns
