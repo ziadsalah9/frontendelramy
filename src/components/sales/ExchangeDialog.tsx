@@ -74,7 +74,7 @@ export function ExchangeDialog({ invoice, open, onClose, onDone }: { invoice: Sa
         cashAmount: method === 'MIXED' ? Number(cashAmount) : undefined, refundMethod: refund, reason: reason.trim() || undefined,
       });
       toast.success(`تم الاستبدال: فاتورة جديدة ${r.newInvoice.invoiceNumber}`);
-      ['sales-invoices', 'sales-returns', 'products', 'low-stock', 'customers', 'customer-account', 'cash-closings-summary', 'activity-logs', 'dashboard', 'installment-plan', 'installments-due']
+      ['sales-invoices', 'sales-returns', 'products', 'low-stock', 'customers', 'customer-account', 'cash-closings-summary', 'activity-logs', 'dashboard', 'installment-plan', 'installments-due', 'installment-customers', 'installment-customer']
         .forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
       setBackQty({});
       setLines([]);

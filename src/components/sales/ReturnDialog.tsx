@@ -61,7 +61,7 @@ export function ReturnDialog({ invoice, open, onClose, onDone }: { invoice: Sale
     try {
       const r = await salesReturnsService.create(invoice.id, { items, refundMethod: method, reason: reason.trim() || undefined });
       toast.success(`تم تسجيل المرتجع ${r.returnNumber}: ${formatCurrency(r.total)} ج.م`);
-      ['sales-invoices', 'sales-returns', 'products', 'low-stock', 'customers', 'customer-account', 'cash-closings-summary', 'activity-logs', 'dashboard']
+      ['sales-invoices', 'sales-returns', 'products', 'low-stock', 'customers', 'customer-account', 'cash-closings-summary', 'activity-logs', 'dashboard', 'installment-plan', 'installments-due', 'installment-customers', 'installment-customer']
         .forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
       setQty({});
       setReason('');

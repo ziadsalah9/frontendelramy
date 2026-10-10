@@ -12,6 +12,7 @@ import { useStoreSettings } from '@/hooks/useStoreSettings';
 import { formatCurrency } from '@/utils/format';
 import { matches } from '@/utils/validation';
 import { whatsappLink } from '@/utils/whatsapp';
+import { InstallmentCustomersTab } from '@/components/installments/InstallmentCustomersTab';
 
 const WINDOWS = [
   { days: 0, label: 'المتأخرة' },
@@ -19,8 +20,26 @@ const WINDOWS = [
   { days: 30, label: 'خلال شهر' },
 ];
 
-/** Overdue and coming installments, with a WhatsApp reminder and quick collection. */
+type View = 'due' | 'customers';
+
+/** Installments: the follow-up list (overdue / coming) and the customers with their plans. */
 export default function InstallmentsPage() {
+  const [view, setView] = useState<View>('due');
+  const tabCls = (on: boolean) => `px-4 py-2 rounded-md text-sm font-medium transition-all ${on ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`;
+  return (
+    <div>
+      <PageHeader title="الأقساط" description="متابعة الأقساط المتأخرة والقادمة، وعملاء التقسيط وتفاصيل خططهم" />
+      <div className="flex gap-1 p-1 bg-muted rounded-lg w-fit mb-4" role="tablist" aria-label="عرض الأقساط">
+        <button type="button" role="tab" aria-selected={view === 'due'} onClick={() => setView('due')} className={tabCls(view === 'due')}>المتابعة</button>
+        <button type="button" role="tab" aria-selected={view === 'customers'} onClick={() => setView('customers')} className={tabCls(view === 'customers')}>العملاء</button>
+      </div>
+      {view === 'due' ? <DueInstallmentsTab /> : <InstallmentCustomersTab />}
+    </div>
+  );
+}
+
+/** Overdue and coming installments, with a WhatsApp reminder and quick collection. */
+function DueInstallmentsTab() {
   const [days, setDays] = useState(0);
   const [search, setSearch] = useState('');
   const [collectFor, setCollectFor] = useState<DueInstallment | null>(null);
@@ -71,8 +90,7 @@ export default function InstallmentsPage() {
   const tabCls = (on: boolean) => `px-3 py-1.5 rounded-md text-sm font-medium transition-all ${on ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'}`;
 
   return (
-    <div>
-      <PageHeader title="الأقساط" description="متابعة الأقساط المتأخرة والقادمة وتذكير العملاء" />
+    <>
       <div className="grid grid-cols-2 gap-3 mb-4">
         <div className="p-4 rounded-xl border bg-card"><p className="text-xs text-muted-foreground mb-1">متأخر</p><p className="text-xl font-bold text-destructive">{formatCurrency(overdueTotal)} ج.م</p><p className="text-xs text-muted-foreground">{overdue.length} قسط</p></div>
         <div className="p-4 rounded-xl border bg-card"><p className="text-xs text-muted-foreground mb-1">إجمالي المعروض</p><p className="text-xl font-bold">{formatCurrency(total)} ج.م</p><p className="text-xs text-muted-foreground">{rows.length} قسط</p></div>
@@ -92,6 +110,6 @@ export default function InstallmentsPage() {
       <Modal open={!!collectFor} onClose={() => setCollectFor(null)} title={`تحصيل من ${collectFor?.customerName ?? ''}`} maxWidth="max-w-2xl">
         {collectFor && <CustomerAccountPanel customerId={collectFor.customerId} />}
       </Modal>
-    </div>
+    </>
   );
 }

@@ -50,7 +50,7 @@ export function CustomerAccountPanel({ customerId }: { customerId: number }) {
     try {
       const p = await customerAccountsService.pay(customerId, { branchId, amount: n, paymentMethod: method, notes: notes.trim() || undefined });
       toast.success(`تم تسجيل التحصيل ${p.paymentNumber}: ${formatCurrency(p.amount)} ج.م`);
-      ['customer-account', 'customer-payments', 'cash-closings-summary', 'activity-logs', 'installments-due', 'installment-plan', 'dashboard'].forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
+      ['customer-account', 'customer-payments', 'cash-closings-summary', 'activity-logs', 'installments-due', 'installment-customers', 'installment-customer', 'installment-plan', 'dashboard'].forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
       setPayOpen(false);
     } catch (err) {
       setError(extractApiError(err).message);

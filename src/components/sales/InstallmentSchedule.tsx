@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { installmentsService } from '@/api/installments';
-import type { InstallmentStatus } from '@/types';
+import type { InstallmentPlan, InstallmentStatus } from '@/types';
 import { Badge } from '@/components/shared/DataTable';
 import { formatCurrency } from '@/utils/format';
 
@@ -15,10 +15,15 @@ const STATUS: Record<InstallmentStatus, { label: string; variant: 'success' | 'w
 export function InstallmentSchedule({ invoiceId }: { invoiceId: number }) {
   const { data: plan } = useQuery({ queryKey: ['installment-plan', invoiceId], queryFn: () => installmentsService.forInvoice(invoiceId) });
   if (!plan) return null;
+  return <InstallmentPlanView plan={plan} />;
+}
+
+/** One plan: its terms, what is paid and left, and the month-by-month schedule. */
+export function InstallmentPlanView({ plan, title }: { plan: InstallmentPlan; title?: string }) {
   return (
     <div className="space-y-2">
       <h4 className="font-semibold text-foreground">
-        التقسيط: {plan.months} شهر
+        {title ?? 'التقسيط'}: {plan.months} شهر
         {plan.markupPercent > 0 && <span className="text-sm font-normal text-muted-foreground"> (زيادة {plan.markupPercent}% = {formatCurrency(plan.markupAmount)} ج.م)</span>}
       </h4>
       <p className="text-sm">

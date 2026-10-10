@@ -387,7 +387,7 @@ export function NewSalesInvoiceDialog({ open, onClose, onCreated }: { open: bool
       queryClient.invalidateQueries({ queryKey: ['customers'] });
       queryClient.invalidateQueries({ queryKey: ['cash-closings-summary'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
-      queryClient.invalidateQueries({ queryKey: ['installments-due'] });
+      ['installments-due', 'installment-customers', 'installment-customer'].forEach((k) => queryClient.invalidateQueries({ queryKey: [k] }));
       onCreated(created);
     } catch (err) {
       setError(extractApiError(err).message);

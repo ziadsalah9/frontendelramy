@@ -741,3 +741,22 @@ export interface DueInstallment {
   remaining: number;
   daysLate: number;
 }
+
+/** One customer's installment position over all their plans (Installments > Customers). */
+export interface InstallmentCustomer {
+  customerId: number;
+  customerName: string;
+  customerPhone?: string | null;
+  plans: number;
+  openPlans: number;
+  /** Plan totals incl. markup. */
+  totalAmount: number;
+  paid: number;
+  remaining: number;
+  overdueCount: number;
+  overdueAmount: number;
+  maxDaysLate: number;
+  nextDueDate: string | null;
+  nextDueAmount: number | null;
+  lastPlanDate: string | null;
+}
