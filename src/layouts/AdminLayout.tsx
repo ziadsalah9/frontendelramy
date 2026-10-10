@@ -13,6 +13,7 @@ import {
   Receipt,
   UserCog,
   LogOut,
+  Activity,
   KeyRound,
   Menu,
   X,
@@ -43,6 +44,7 @@ const navItems = [
   { to: '/', label: 'الرئيسية', icon: LayoutDashboard, adminOnly: false, exact: true },
   // Includes cost and profit; /api/reports is ADMIN-only.
   { to: '/reports', label: 'التقارير', icon: BarChart3, adminOnly: true, exact: false },
+  { to: '/demand', label: 'حركة الأصناف', icon: Activity, adminOnly: true, exact: false },
   { to: '/products', label: 'المنتجات', icon: Package, adminOnly: false, exact: false },
   // Excel rows missing data; not part of the system until completed.
   { to: '/product-drafts', label: 'منتجات غير مكتملة', icon: FilePen, adminOnly: true, exact: false },

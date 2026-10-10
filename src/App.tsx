@@ -21,6 +21,7 @@ import StocktakesPage from '@/pages/StocktakesPage';
 import StocktakeDetailPage from '@/pages/StocktakeDetailPage';
 import SettingsPage from '@/pages/SettingsPage';
 import ReportsPage from '@/pages/ReportsPage';
+import DemandPage from '@/pages/DemandPage';
 import SuppliersPage from '@/pages/SuppliersPage';
 import ExpensesPage from '@/pages/ExpensesPage';
 import InstallmentsPage from '@/pages/InstallmentsPage';
@@ -96,6 +97,7 @@ export default function App() {
               />
               <Route path="settings" element={<AdminRoute><SettingsPage /></AdminRoute>} />
               <Route path="reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
+              <Route path="demand" element={<AdminRoute><DemandPage /></AdminRoute>} />
               <Route path="suppliers" element={<AdminRoute><SuppliersPage /></AdminRoute>} />
               <Route path="expenses" element={<AdminRoute><ExpensesPage /></AdminRoute>} />
               {/* Stocktaking; ADMIN-only end to end. */}

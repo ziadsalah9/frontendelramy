@@ -773,3 +773,43 @@ export interface InstallmentCustomer {
   nextDueAmount: number | null;
   lastPlanDate: string | null;
 }
+
+// ---------------------------------------------------------------- sales & demand analysis (ADMIN)
+
+export type DemandStatus = 'OUT_OF_STOCK' | 'REORDER' | 'OK' | 'OVERSTOCK' | 'NOT_MOVING' | 'NO_ACTIVITY';
+
+/** One colour/size over the analysed period. */
+export interface DemandItem {
+  variantId: number;
+  productId: number;
+  productName: string;
+  code: string;
+  itemType: string | null;
+  label: string;
+  stock: number;
+  stockValue: number;
+  sold: number;
+  returned: number;
+  /** Sold minus returned. */
+  net: number;
+  revenue: number;
+  avgDaily: number;
+  /** Net sold in the first / second half of the period (trend). */
+  firstHalf: number;
+  secondHalf: number;
+  /** How many days the stock lasts at the current pace; null when it does not sell. */
+  daysOfCover: number | null;
+  lastSaleAt: string | null;
+  /** By share of revenue; null when it did not sell. */
+  abc: 'A' | 'B' | 'C' | null;
+  status: DemandStatus;
+  /** Units to order for about 30 days of stock. */
+  suggestedReorder: number;
+}
+
+export interface DemandReport {
+  from: string;
+  to: string;
+  days: number;
+  items: DemandItem[];
+}
