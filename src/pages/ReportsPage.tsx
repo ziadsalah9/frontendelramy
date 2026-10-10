@@ -115,6 +115,8 @@ function ReportBody({ r, fetching }: { r: SalesReport; fetching: boolean }) {
       )}
       <p className="text-xs text-muted-foreground">الربح محسوب بسعر التكلفة الحالي للمنتجات.</p>
 
+      <CashEarningsCard e={r.cashEarnings} />
+
       <section className="p-4 rounded-xl border bg-card">
         <h3 className="text-sm font-semibold mb-3">المبيعات والربح يومياً</h3>
         {r.days.every((d) => d.invoices === 0 && d.returns === 0) ? (
@@ -178,6 +180,49 @@ function TableCard({ title, head, rows, empty }: { title: string; head: string[]
             <tbody>{rows.map((row, i) => <tr key={i} className="border-t">{row.map((c, j) => <td key={j} className="py-2">{c}</td>)}</tr>)}</tbody>
           </table>
         </div>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Earnings judged on the cash actually counted at closing: the drawer total
+ * against what was expected, and the net profit corrected by the
+ * difference (a shortage lowers it, a surplus raises it).
+ */
+function CashEarningsCard({ e }: { e: SalesReport['cashEarnings'] }) {
+  const money = (v: number) => `${formatCurrency(v)} ج.م`;
+  const diffTone = e.difference < 0 ? 'text-destructive' : e.difference > 0 ? 'text-warning' : 'text-success';
+  return (
+    <section className="p-4 rounded-xl border bg-card">
+      <h3 className="text-sm font-semibold mb-3 flex items-center gap-2"><Wallet className="w-4 h-4" /> الأرباح حسب الكاش الفعلي</h3>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="p-3 rounded-lg bg-muted/50">
+          <p className="text-xs text-muted-foreground mb-1">الكاش المعدود في الإغلاقات</p>
+          <p className="text-lg font-bold">{money(e.countedTotal)}</p>
+          <p className="text-xs text-muted-foreground">{e.closings} يوم مُغلق · المتوقع {formatCurrency(e.expectedTotal)}</p>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50">
+          <p className="text-xs text-muted-foreground mb-1">{e.difference < 0 ? 'عجز الدرج' : e.difference > 0 ? 'زيادة الدرج' : 'فرق الدرج'}</p>
+          <p className={`text-lg font-bold ${diffTone}`} dir="ltr">{e.difference > 0 ? '+' : ''}{formatCurrency(e.difference)}</p>
+          <p className="text-xs text-muted-foreground">المعدود ناقص المتوقع</p>
+        </div>
+        <div className="p-3 rounded-lg bg-muted/50">
+          <p className="text-xs text-muted-foreground mb-1">صافي الربح</p>
+          <p className="text-lg font-bold">{money(e.netProfit)}</p>
+          <p className="text-xs text-muted-foreground">المبيعات − التكلفة − المصروفات</p>
+        </div>
+        <div className={`p-3 rounded-lg ${e.actualNetProfit >= 0 ? 'bg-success/10' : 'bg-destructive/10'}`}>
+          <p className="text-xs text-muted-foreground mb-1">الربح الفعلي</p>
+          <p className={`text-lg font-bold ${e.actualNetProfit >= 0 ? 'text-success' : 'text-destructive'}`}>{money(e.actualNetProfit)}</p>
+          <p className="text-xs text-muted-foreground">صافي الربح بعد فرق الدرج</p>
+        </div>
+      </div>
+      {e.unclosedDays.length > 0 && (
+        <p className="mt-3 flex items-start gap-2 text-xs text-warning">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          <span>أيام بها مبيعات ولم يُغلق الكاش ({e.unclosedDays.length}): <span dir="ltr">{e.unclosedDays.slice(0, 10).join('، ')}</span>{e.unclosedDays.length > 10 ? ' …' : ''}. الربح الفعلي لا يشمل فرق درجها.</span>
+        </p>
       )}
     </section>
   );

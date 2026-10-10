@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Calculator, Save, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { cashClosingsService, type CashClosingRequest, type CashClosingResponse } from '@/api/cashClosings';
+import { Calculator, Save, AlertCircle, CheckCircle2, TrendingUp } from 'lucide-react';
+import { cashClosingsService, type CashClosingRequest, type CashClosingResponse, type DayProfit } from '@/api/cashClosings';
 import { extractApiError } from '@/api/client';
 import { PageHeader, LoadingState, ErrorState, EmptyState, ConfirmDialog } from '@/components/shared/States';
 import { Modal } from '@/components/shared/Modal';
@@ -208,7 +208,7 @@ export default function CashClosingsPage() {
             </div>
           )}
           <div className="grid gap-4 md:grid-cols-3">
-            <div className="p-4 border rounded-lg bg-card"><p className="text-xs text-muted-foreground mb-1">مبيعات الكاش (المتوقعة)</p><p className="text-2xl font-bold">{formatCurrency(cashSalesTotal)} ج.م</p><p className="text-xs text-muted-foreground mt-1">المدفوع نقداً فقط (لا يشمل الدفع المختلط)</p></div>
+            <div className="p-4 border rounded-lg bg-card"><p className="text-xs text-muted-foreground mb-1">مبيعات الكاش (المتوقعة)</p><p className="text-2xl font-bold">{formatCurrency(cashSalesTotal)} ج.م</p><p className="text-xs text-muted-foreground mt-1">كاش المبيعات والتحصيل ناقص المرتجع والمصروفات المدفوعة نقداً</p></div>
             <div className="p-4 border rounded-lg bg-card"><p className="text-xs text-muted-foreground mb-1">المجموع المعدود</p><p className="text-2xl font-bold">{formatCurrency(countedTotal)} ج.م</p></div>
             <div className="p-4 border rounded-lg bg-card">
               <p className="text-xs text-muted-foreground mb-1">الفرق</p>
@@ -216,6 +216,7 @@ export default function CashClosingsPage() {
               <p className="text-xs text-muted-foreground mt-1">{difference === 0 ? 'مطابق' : difference > 0 ? 'زيادة في الدرج' : 'عجز في الدرج'}</p>
             </div>
           </div>
+          {summary.dayProfit && <DayProfitPanel profit={summary.dayProfit} drawerDifference={difference} counted={countedTotal > 0} />}
           <div className="border rounded-lg bg-card p-4">
             <h3 className="font-semibold mb-4 flex items-center gap-2"><Calculator className="w-4 h-4" /> عد الفئات</h3>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -254,6 +255,44 @@ export default function CashClosingsPage() {
             </button>
           </div>
         </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The day's earning (admin): profit of what was sold minus expenses, then
+ * corrected by the drawer - a shortage lowers it, a surplus raises it.
+ */
+function DayProfitPanel({ profit, drawerDifference, counted }: { profit: DayProfit; drawerDifference: number; counted: boolean }) {
+  const actual = profit.netProfit + (counted ? drawerDifference : 0);
+  const row = (label: string, value: number, sign = '', cls = '') => (
+    <div className="flex justify-between gap-3 py-1 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className={`font-medium whitespace-nowrap ${cls}`} dir="ltr">{sign}{formatCurrency(Math.abs(value))}</span>
+    </div>
+  );
+  return (
+    <div className="border rounded-lg bg-card p-4">
+      <h3 className="font-semibold mb-3 flex items-center gap-2"><TrendingUp className="w-4 h-4" /> أرباح اليوم</h3>
+      <div className="grid gap-4 md:grid-cols-[1fr_auto]">
+        <div className="divide-y">
+          {row('صافي المبيعات (بعد المرتجع)', profit.netSales)}
+          {row('تكلفة البضاعة المباعة', profit.costOfSales, '− ')}
+          {row('مجمل الربح', profit.grossProfit, profit.grossProfit < 0 ? '− ' : '', 'text-foreground')}
+          {row('مصروفات اليوم', profit.expenses, '− ')}
+          {row('صافي الربح', profit.netProfit, profit.netProfit < 0 ? '− ' : '', 'font-bold')}
+          {counted && row(drawerDifference < 0 ? 'عجز الدرج' : 'زيادة الدرج', drawerDifference, drawerDifference < 0 ? '− ' : '+ ',
+            drawerDifference < 0 ? 'text-destructive' : drawerDifference > 0 ? 'text-warning' : '')}
+        </div>
+        <div className={`flex flex-col justify-center items-center min-w-[11rem] p-4 rounded-lg ${actual >= 0 ? 'bg-success/10' : 'bg-destructive/10'}`}>
+          <p className="text-xs text-muted-foreground mb-1">{counted ? 'الربح الفعلي بعد عد الدرج' : 'صافي الربح'}</p>
+          <p className={`text-2xl font-bold ${actual >= 0 ? 'text-success' : 'text-destructive'}`}>{formatCurrency(actual)} ج.م</p>
+          {!counted && <p className="text-[11px] text-muted-foreground mt-1">اعدّ الدرج ليظهر الربح الفعلي</p>}
+        </div>
+      </div>
+      {profit.linesWithoutCost > 0 && (
+        <p className="mt-2 text-xs text-warning">{profit.linesWithoutCost} بند مباع بدون سعر تكلفة لم يُحسب في الربح. أضف سعر التكلفة للمنتج.</p>
       )}
     </div>
   );

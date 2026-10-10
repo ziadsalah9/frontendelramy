@@ -12,6 +12,19 @@ export interface CashClosingSummary {
   count50: number;
   count100: number;
   count200: number;
+  /** The day's profit; admins only (null for employees). */
+  dayProfit?: DayProfit | null;
+}
+
+/** Profit of the closing day: net sales - cost of goods sold - that day's expenses. */
+export interface DayProfit {
+  netSales: number;
+  costOfSales: number;
+  grossProfit: number;
+  expenses: number;
+  netProfit: number;
+  /** Sold lines whose product has no cost price (left out of the profit). */
+  linesWithoutCost: number;
 }
 
 export interface CashClosingResponse {

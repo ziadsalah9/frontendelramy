@@ -613,6 +613,19 @@ export interface SalesReport {
   paymentMethods: { method: PaymentMethod; invoices: number; paid: number }[];
   stocktakes: { id: number; code: string; title: string; approvedAt: string; shortageCost?: number | null; surplusCost?: number | null }[];
   expenses: { category: ExpenseCategory; count: number; amount: number }[];
+  /** Earnings on the cash actually counted at the closings in the range. */
+  cashEarnings: {
+    closings: number;
+    countedTotal: number;
+    expectedTotal: number;
+    /** counted - expected: negative = shortage. */
+    difference: number;
+    netProfit: number;
+    /** Net profit corrected by the drawer difference. */
+    actualNetProfit: number;
+    /** Past days with sales but no cash closing. */
+    unclosedDays: string[];
+  };
 }
 
 // ---------------------------------------------------------------- suppliers & expenses (ADMIN-only)
