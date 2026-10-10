@@ -121,7 +121,7 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-background flex" dir="rtl">
       {/* Sidebar - desktop */}
       <aside
-        className={`fixed lg:static inset-y-0 right-0 z-40 w-72 bg-sidebar text-sidebar-foreground flex flex-col transition-transform duration-300 ${
+        className={`fixed lg:sticky inset-y-0 lg:top-0 right-0 z-40 w-72 shrink-0 h-dvh bg-sidebar text-sidebar-foreground flex flex-col transition-transform duration-300 ${
           sidebarOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0'
         }`}
       >
@@ -141,7 +141,7 @@ export default function AdminLayout() {
           </button>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-3" aria-label="القائمة الرئيسية">
+        <nav className="flex-1 min-h-0 overflow-y-auto overscroll-contain px-3 py-3 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.25)_transparent]" aria-label="القائمة الرئيسية">
           {[null, ...NAV_GROUPS.map((g) => g.key)].map((group) => {
             const items = navItems.filter((item) => item.group === group && (!item.adminOnly || isAdmin));
             if (items.length === 0) return null;
