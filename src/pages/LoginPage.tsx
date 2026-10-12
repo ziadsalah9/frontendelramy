@@ -83,7 +83,7 @@ export default function LoginPage() {
                 <Sofa className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-foreground">مفروشات الرميزي</h1>
+                <h1 className="text-lg font-bold text-foreground">مفروشات الرامى</h1>
                 <p className="text-xs text-muted-foreground">نظام إدارة المتجر</p>
               </div>
             </div>
